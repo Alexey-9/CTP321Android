@@ -36,9 +36,33 @@ jobs:
           test -f source/CTP321AndroidStarter/app/build.gradle.kts
           sed -n '1,160p' source/CTP321AndroidStarter/app/build.gradle.kts
 
+      - name: Align Java and Kotlin JVM targets
+        working-directory: source/CTP321AndroidStarter
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("app/build.gradle.kts")
+          s = p.read_text()
+          marker = '    defaultConfig {'
+          addition = '''    compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          '''
+          if "sourceCompatibility = JavaVersion.VERSION_17" not in s:
+              s = s.replace(marker, addition + marker, 1)
+          p.write_text(s)
+          PY
+
       - name: Build debug APK
         working-directory: source/CTP321AndroidStarter
         run: gradle --no-daemon assembleDebug
+
+      
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
