@@ -1,0 +1,49 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'CTP321AndroidStarter_0.6.2_cloudbuild.zip'
+      - '.github/workflows/build-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Extract Android project
+        run: |
+          test -f CTP321AndroidStarter_0.6.2_cloudbuild.zip
+          mkdir -p source
+          unzip -q CTP321AndroidStarter_0.6.2_cloudbuild.zip -d source
+          test -f source/CTP321AndroidStarter/app/build.gradle.kts
+          sed -n '1,160p' source/CTP321AndroidStarter/app/build.gradle.kts
+
+      - name: Build debug APK
+        working-directory: source/CTP321AndroidStarter
+        run: gradle --no-daemon assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CTP-Mobile-Lab-debug-apk
+          path: source/CTP321AndroidStarter/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
