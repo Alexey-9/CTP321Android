@@ -1,4 +1,4 @@
-# CTP Mobile Lab 0.8.1
+# CTP Mobile Lab 0.8.2
 
 Android prototype for local Январь 7.2 / J7ES firmware inspection.
 
@@ -10,9 +10,11 @@ Android prototype for local Январь 7.2 / J7ES firmware inspection.
 - Save a copy of the firmware
 - Edit one byte by hexadecimal file offset and save an edited copy
 - Inspect J7 descriptor address-marker candidates and view the corresponding BIN HEX region
+- Browse a clearly labelled reference catalog of J7ES calibration addresses from the public `cmgt/j7es` disassembly
 
 ## Important limitations
 - .j7 names are currently extracted as text fragments; this is not a validated calibration-table parser.
 - Calibration values, axes, dimensions and scaling are not decoded yet; marker addresses remain candidates until validated against CTP321 output.
+- Public reference addresses are from a separate disassembly and must not be applied to the user's firmware until version and address mapping are verified.
 - Byte editing does not recalculate ECU checksums or validate firmware compatibility. Never flash a modified file until its format and checksum requirements have been verified.
 - This build is a development step, not a complete replacement for ChipTuningPRO/CTP321.
