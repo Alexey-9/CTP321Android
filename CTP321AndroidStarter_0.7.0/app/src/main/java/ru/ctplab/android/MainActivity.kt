@@ -263,6 +263,9 @@ class MainActivity : Activity() {
             add(referenceCard, action("$name  •  0x%04X".format(address)) {
                 showReferenceMapCandidate(address, name, detail)
             })
+            add(referenceCard, action("Открыть таблицу-кандидат: $name") {
+                rawTableSetup(name)
+            })
             gap(referenceCard, 4)
         }
         add(body, referenceCard)
@@ -419,6 +422,14 @@ class MainActivity : Activity() {
         gridScroll.addView(grid)
         outer.addView(gridScroll, LinearLayout.LayoutParams(-1, dp(320)))
         fun readCell(index: Int): Int = if (width == 1) bytes[index].toInt() and 255 else ((bytes[index].toInt() and 255) shl 8) or (bytes[index+1].toInt() and 255)
+        val graphPreview = TextView(this).apply { setTextColor(fg); textSize = 11f; typeface = Typeface.MONOSPACE }
+        fun refreshGraph() {
+            val values = (0 until rows*cols).map { readCell(offset + it*width) }
+            val maxValue = (values.maxOrNull() ?: 1).coerceAtLeast(1)
+            graphPreview.text = values.take(64).mapIndexed { i, v ->
+                "%02d %5d %s".format(i, v, "▮".repeat((v.toDouble()/maxValue*18).toInt().coerceIn(0,18)))
+            }.joinToString("\\n")
+        }
         fun draw() {
             grid.removeAllViews()
             for (r in 0 until rows) {
@@ -437,7 +448,7 @@ class MainActivity : Activity() {
                             setColor(android.graphics.Color.rgb(35 + value % 45, 55 + value % 65, 55 + value % 45))
                             setStroke(dp(1), 0xFF17191D.toInt())
                         }
-                        setOnClickListener { editRawCell(title, idx, width) { draw() } }
+                        setOnClickListener { editRawCell(title, idx, width) { draw(); refreshGraph() } }
                     }
                     line.addView(cell, LinearLayout.LayoutParams(dp(if (width == 1) 39 else 49), dp(38)))
                 }
@@ -445,16 +456,8 @@ class MainActivity : Activity() {
             }
         }
         draw()
-        val preview = TextView(this).apply { setTextColor(fg); textSize = 11f; typeface = Typeface.MONOSPACE }
-        fun drawGraph() {
-            val values = (0 until rows*cols).map { readCell(offset + it*width) }
-            val maxValue = (values.maxOrNull() ?: 1).coerceAtLeast(1)
-            preview.text = values.take(64).mapIndexed { i, v ->
-                "%02d %5d %s".format(i, v, "▮".repeat((v.toDouble()/maxValue*18).toInt().coerceIn(0,18)))
-            }.joinToString("\\n")
-        }
-        drawGraph()
-        add(outer, preview)
+        refreshGraph()
+        add(outer, graphPreview)
         AlertDialog.Builder(this).setTitle("Таблица-кандидат: $title").setView(outer)
             .setPositiveButton("Готово", null)
             .setNeutralButton("Сохранить копию BIN", null).create().also { dialog ->
