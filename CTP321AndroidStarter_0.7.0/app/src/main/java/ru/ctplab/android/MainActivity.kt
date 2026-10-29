@@ -594,7 +594,7 @@ class MainActivity : Activity() {
                 .setNegativeButton("Отмена", null).show()
             return
         }
-        val report = knownCalibrationCatalog().joinToString("\\n\\n") { map ->
+        val report = knownCalibrationCatalog().joinToString("\n\n") { map ->
             val inRange = map.address >= 0 && map.address.toLong() + map.bytesExpected <= bytes.size
             val matches = inRange && map.signature.indices.all { (bytes[map.address + it].toInt() and 255) == map.signature[it] }
             val actual = if (inRange) (0 until min(8, map.bytesExpected)).joinToString(" ") { "%02X".format(bytes[map.address + it].toInt() and 255) } else "вне файла"
@@ -604,7 +604,7 @@ class MainActivity : Activity() {
                 matches -> "СИГНАТУРА СОВПАЛА"
                 else -> "НЕ СОВПАЛА — адрес не подтверждён"
             }
-            "%s\\nАдрес 0x%04X • длина по ASM: %d байт\\n%s\\n%s\\nBIN: %s".format(map.name, map.address, map.bytesExpected, map.detail, status, actual)
+            "%s\nАдрес 0x%04X • длина по ASM: %d байт\n%s\n%s\nBIN: %s".format(map.name, map.address, map.bytesExpected, map.detail, status, actual)
         }
         AlertDialog.Builder(this).setTitle("Декодер J7ES • проверка сигнатур")
             .setMessage(report)
