@@ -1,0 +1,41 @@
+name: CTP Mobile Lab 0.7.0 Android build
+
+on:
+  push:
+    paths:
+      - "CTP321AndroidStarter_0.7.0/**"
+      - ".github/workflows/ctp-mobile-lab-0-7-0.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build debug APK
+        working-directory: CTP321AndroidStarter_0.7.0
+        run: gradle --no-daemon assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CTP-Mobile-Lab-0.7.0-debug-apk
+          path: CTP321AndroidStarter_0.7.0/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
