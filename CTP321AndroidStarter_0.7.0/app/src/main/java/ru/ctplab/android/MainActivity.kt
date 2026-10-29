@@ -537,10 +537,28 @@ class MainActivity : Activity() {
                 .setPositiveButton("OK", null).show()
             return
         }
-        val note = if (address == 0x8193) {
-            "В исходнике J7ES эта область заполнена 0xFF. Вероятно, таблица не настроена/не используется. Редактировать её без проверки прошивки не рекомендуется."
-        } else {
-            "Адрес начала сверен с открытым j7es_data_area.asm. Показаны исходные байты BIN. Оси, точные размерности и пересчёт физических единиц не подтверждены."
+        val expected = when (address) {
+            0x6A53 -> byteArrayOf(0x48,0x48,0x48,0x48,0x48,0x48,0x48,0x48).map { it.toByte() }.toByteArray()
+            0x6A7A -> byteArrayOf(0x83,0x87.toByte(),0x8D.toByte(),0x97.toByte(),0xA4.toByte(),0xB4.toByte(),0xC3.toByte(),0xD1.toByte(),0xDD.toByte(),0xE7.toByte(),0xF1.toByte(),0xFA.toByte(),0xFF.toByte(),0xFF.toByte(),0xFF.toByte(),0xFF.toByte())
+            0x8F4A -> byteArrayOf(0x0F,0x0F,0x0F,0x0F,0x0F,0x0F,0x0F,0x0E,0x0D,0x0C,0x0B,0x0A,0x09,0x08,0x07,0x06)
+            0x8193 -> ByteArray(16) { 0xFF.toByte() }
+            else -> null
+        }
+        val signatureMatches = expected?.let { sig ->
+            address.toLong() + sig.size <= bytes.size &&
+                sig.indices.all { bytes[address + it] == sig[it] }
+        }
+        val note = when {
+            address == 0x8193 && signatureMatches == true ->
+                "Первые 16 байт совпали с ASM (все 0xFF). Эта область выглядит незаполненной; редактор оставлен доступным только как сырой просмотр, не считай её рабочей картой."
+            address == 0x8193 ->
+                "В BIN сигнатура 0xFF из ASM не совпала. Не редактируй эту область как карту: возможно, версия или адресное отображение отличаются."
+            signatureMatches == true ->
+                "Проверка пройдена: начальная сигнатура BIN совпадает с j7es_data_area.asm. Размерность/оси и физический масштаб пока не декодированы."
+            expected != null ->
+                "Проверка не пройдена: байты BIN по этому адресу не совпадают с сигнатурой ASM. Не используй этот участок как подтверждённую карту; возможны другая версия или смещение образа."
+            else ->
+                "Для этого адреса нет проверочной сигнатуры в приложении. Адрес ASM сам по себе не доказывает, что это файловое смещение BIN. Значения показаны только для диагностики."
         }
         AlertDialog.Builder(this).setTitle(name)
             .setMessage("ASM/BIN-кандидат: 0x%04X\\nРазмер просмотра: %d×%d = %d байт\\n\\n%s".format(address, rows, cols, count, note))
