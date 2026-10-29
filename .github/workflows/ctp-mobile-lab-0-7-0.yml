@@ -32,6 +32,20 @@ jobs:
         working-directory: CTP321AndroidStarter_0.7.0
         run: gradle --no-daemon assembleDebug
 
+      - name: Verify APK and critical editor features
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="CTP321AndroidStarter_0.7.0/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q 'classes.dex'
+          SRC="CTP321AndroidStarter_0.7.0/app/src/main/java/ru/ctplab/android/MainActivity.kt"
+          grep -q 'private fun undoLastEdit()' "$SRC"
+          grep -q 'private fun redoLastEdit()' "$SRC"
+          grep -q 'private fun copyRawMap(' "$SRC"
+          grep -q 'private fun pasteRawMap(' "$SRC"
+          echo "APK archive and required editor features verified."
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
