@@ -30,6 +30,7 @@ class MainActivity : Activity() {
     private var descriptorBytes: ByteArray? = null
     private var selectedCalibration: Pair<Int, String>? = null
     private var calibrationSearch = ""
+    private var firmwareDirty = false
     private lateinit var body: LinearLayout
     private lateinit var status: TextView
 
@@ -386,7 +387,11 @@ class MainActivity : Activity() {
         }
         add(c, hex)
         gap(c, 7)
-        add(c, text("Показано $count из ${bytes.size} байт. HEX-редактирование пока отключено.", 11f, muted))
+        add(c, text("Показано $count из ${bytes.size} байт. ${if (firmwareDirty) "Есть несохранённые изменения." else "Файл без изменений."}", 11f, muted))
+        gap(c, 8)
+        add(c, action("Изменить байт по адресу") { editByteDialog() })
+        gap(c, 6)
+        add(c, action("Сохранить изменённую копию") { saveCopy() })
         add(body, c)
     }
 
@@ -425,6 +430,64 @@ class MainActivity : Activity() {
         startActivityForResult(intent, request)
     }
 
+    private fun editByteDialog() {
+        val bytes = firmwareBytes
+        if (bytes == null) {
+            Toast.makeText(this, "Сначала открой BIN", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(4))
+        }
+        val offsetInput = EditText(this).apply {
+            hint = "Адрес HEX, например 0x100"
+            setSingleLine(true)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            setTextColor(fg)
+        }
+        val valueInput = EditText(this).apply {
+            hint = "Новое значение байта HEX, например FF"
+            setSingleLine(true)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            setTextColor(fg)
+        }
+        add(form, text("Адрес байта в файле (HEX)", 12f, muted))
+        add(form, offsetInput)
+        gap(form, 8)
+        add(form, text("Новое значение от 00 до FF", 12f, muted))
+        add(form, valueInput)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Редактирование BIN")
+            .setMessage("Изменяется только выбранный байт. Контрольные суммы ЭБУ автоматически не пересчитываются.")
+            .setView(form)
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Применить", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                try {
+                    val offText = offsetInput.text.toString().trim().removePrefix("0x").removePrefix("0X")
+                    val offset = offText.toLong(16)
+                    val valueText = valueInput.text.toString().trim().removePrefix("0x").removePrefix("0X")
+                    val value = valueText.toInt(16)
+                    if (offset < 0 || offset >= bytes.size || value !in 0..255 || valueText.isBlank()) {
+                        throw IllegalArgumentException("Адрес или значение вне допустимого диапазона")
+                    }
+                    bytes[offset.toInt()] = value.toByte()
+                    firmwareDirty = true
+                    status.text = "$firmwareName • ${bytes.size} байт • есть изменения"
+                    dialog.dismiss()
+                    render()
+                    Toast.makeText(this, "Байт по адресу 0x%X изменён".format(offset), Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Проверь адрес и значение HEX", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        dialog.show()
+    }
+
     private fun saveCopy() {
         val bytes = firmwareBytes
         if (bytes == null) {
@@ -434,7 +497,7 @@ class MainActivity : Activity() {
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "application/octet-stream"
-            putExtra(Intent.EXTRA_TITLE, firmwareName.substringBeforeLast('.', firmwareName) + "_copy.bin")
+            putExtra(Intent.EXTRA_TITLE, firmwareName.substringBeforeLast('.', firmwareName) + if (firmwareDirty) "_edited.bin" else "_copy.bin")
         }
         startActivityForResult(intent, SAVE_COPY)
     }
@@ -448,6 +511,7 @@ class MainActivity : Activity() {
             when (requestCode) {
                 OPEN_FIRMWARE -> {
                     firmwareBytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    firmwareDirty = false
                     firmwareName = displayName(uri) ?: "firmware.bin"
                     status.text = "$firmwareName  •  ${firmwareBytes?.size ?: 0} байт"
                     render()
@@ -461,7 +525,9 @@ class MainActivity : Activity() {
                 SAVE_COPY -> {
                     val bytes = firmwareBytes ?: return
                     contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-                    Toast.makeText(this, "Копия сохранена", Toast.LENGTH_LONG).show()
+                    firmwareDirty = false
+                    Toast.makeText(this, "Копия сохранена. Проверь контрольные суммы перед использованием в ЭБУ.", Toast.LENGTH_LONG).show()
+                    render()
                 }
                 OPEN_DESCRIPTOR -> {
                     descriptorBytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
