@@ -193,7 +193,26 @@ class MainActivity : Activity() {
             return
         }
         add(body, text("Калибровки", 22f, fg, true))
-        add(body, text("Декодер J7ES: названия, метки адресов и проверка связи с BIN. Неподтверждённые данные помечаются как кандидаты.", 13f, muted))
+        add(body, text("Справочные адреса J7ES и диагностический просмотр кандидатов. Адреса ASM не считаются файловыми смещениями, пока не подтверждена карта памяти конкретной прошивки.", 13f, muted))
+        gap(body, 6)
+        val firmwareForMaps = firmwareBytes
+        val quickMaps = card()
+        add(quickMaps, text("БЫСТРЫЙ ПРОСМОТР КАРТ-КАНДИДАТОВ", 11f, accent, true))
+        add(quickMaps, text(if (firmwareForMaps == null) "Открой BIN, чтобы посмотреть байты по справочным адресам." else "Загружен $firmwareName • ${firmwareForMaps.size} байт. Просмотр ниже диагностический, не готовые значения калибровок.", 12f, muted))
+        gap(quickMaps, 4)
+        listOf(
+            Triple(0x6953, "Смесь: обороты × дроссель", "Ось X/Y и формат значения ещё требуют подтверждения"),
+            Triple(0x6AC8, "УОЗ: обороты × давление", "В ASM единицы указаны как градусы ПКВ и давление кПа×10"),
+            Triple(0x83BA, "Смесь: обороты × давление", "В ASM единицы оси давления указаны как кПа×10"),
+            Triple(0x8F4A, "Коэффициент топливной плёнки", "Температурная зависимость")
+        ).forEach { item ->
+            add(quickMaps, action("${item.second} • ASM 0x%04X".format(item.first)) {
+                showReferenceMapCandidate(item.first, item.second, item.third)
+            })
+            gap(quickMaps, 4)
+        }
+        add(body, quickMaps)
+        gap(body)
         gap(body)
         val fileCard = card()
         add(fileCard, text("ФАЙЛЫ КАЛИБРОВОК", 11f, accent, true))
