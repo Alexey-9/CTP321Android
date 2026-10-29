@@ -328,6 +328,41 @@ class MainActivity : Activity() {
         add(hero, text("Январь 7.2  /  J7ES", 12f, muted))
         add(body, hero)
         gap(body)
+        // Live canvas chart on dashboard; values are sampled from BIN when loaded.
+        val chartCard = card()
+        add(chartCard, text("ГРАФИК ПРОШИВКИ", 11f, accent, true))
+        add(chartCard, text(if (firmwareBytes == null) "Демонстрационный профиль до открытия BIN" else "Среднее значение байтов по участкам загруженного BIN", 12f, muted))
+        gap(chartCard, 6)
+        val chart = object : View(this) {
+            private val gridPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF34414A.toInt(); strokeWidth = dp(1).toFloat() }
+            private val curvePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = accent; strokeWidth = dp(2).toFloat(); style = android.graphics.Paint.Style.STROKE; strokeJoin = android.graphics.Paint.Join.ROUND }
+            private val fillPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0x4438D6A5; style = android.graphics.Paint.Style.FILL }
+            private val labelPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = muted; textSize = dp(10).toFloat() }
+            override fun onDraw(canvas: android.graphics.Canvas) {
+                super.onDraw(canvas)
+                val l = dp(30).toFloat(); val r = width - dp(8).toFloat(); val t = dp(10).toFloat(); val b = height - dp(22).toFloat()
+                for (n in 0..4) { val y = t + (b-t)*n/4f; canvas.drawLine(l,y,r,y,gridPaint); canvas.drawText((255-n*64).coerceAtLeast(0).toString(), 0f, y+dp(3), labelPaint) }
+                val data = firmwareBytes
+                val count = 72
+                val path = android.graphics.Path(); val area = android.graphics.Path()
+                for (i in 0 until count) {
+                    val v = if (data == null || data.isEmpty()) (128 + 54*kotlin.math.sin(i*0.22) + 22*kotlin.math.sin(i*0.57)).toInt().coerceIn(0,255) else {
+                        val start = i * data.size / count; val end = ((i+1)*data.size/count).coerceAtLeast(start+1).coerceAtMost(data.size)
+                        var sum = 0L
+                        for (j in start until end) sum += data[j].toInt() and 255
+                        (sum / (end-start)).toInt()
+                    }
+                    val x = l + (r-l)*i/(count-1).toFloat(); val y = b - (b-t)*v/255f
+                    if (i == 0) { path.moveTo(x,y); area.moveTo(x,b); area.lineTo(x,y) } else { path.lineTo(x,y); area.lineTo(x,y) }
+                }
+                area.lineTo(r,b); area.close(); canvas.drawPath(area,fillPaint); canvas.drawPath(path,curvePaint)
+                canvas.drawText("0", l, height-dp(5).toFloat(), labelPaint)
+                canvas.drawText(if(data==null) "DEMO" else "BIN", r-dp(28), height-dp(5).toFloat(), labelPaint)
+            }
+        }.apply { layoutParams = LinearLayout.LayoutParams(-1, dp(165)) }
+        add(chartCard, chart)
+        add(body, chartCard)
+        gap(body)
         val f = card()
         add(f, text("ФАЙЛ ПРОШИВКИ  /  BIN", 11f, accent, true))
         gap(f, 6)
