@@ -15,12 +15,12 @@ import java.security.MessageDigest
 import kotlin.math.min
 
 class MainActivity : Activity() {
-    private val bg = 0xFF061321.toInt()
-    private val panel = 0xFF0D2033.toInt()
-    private val panel2 = 0xFF102A42.toInt()
-    private val accent = 0xFF25B5FF.toInt()
-    private val fg = 0xFFE6F3FF.toInt()
-    private val muted = 0xFF91ABC2.toInt()
+    private val bg = 0xFF101214.toInt()
+    private val panel = 0xFF1A1D20.toInt()
+    private val panel2 = 0xFF24292E.toInt()
+    private val accent = 0xFF38D6A5.toInt()
+    private val fg = 0xFFF1F4F3.toInt()
+    private val muted = 0xFF9AA6A2.toInt()
     private var tab = "Обзор"
     private var firmwareName = "Файл не открыт"
     private var firmwareBytes: ByteArray? = null
@@ -79,11 +79,11 @@ class MainActivity : Activity() {
 
     private fun card() = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(dp(14), dp(13), dp(14), dp(13))
+        setPadding(dp(16), dp(15), dp(16), dp(15))
         background = android.graphics.drawable.GradientDrawable().apply {
             setColor(panel)
-            cornerRadius = dp(14).toFloat()
-            setStroke(dp(1), 0xFF30353D.toInt())
+            cornerRadius = dp(16).toFloat()
+            setStroke(dp(1), 0xFF303638.toInt())
         }
     }
 
@@ -109,30 +109,45 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        add(branding, text("CTP321", 25f, fg, true))
-        add(branding, text("РЕДАКТОР КАЛИБРОВОК  •  J7ES", 10f, accent, true))
+        add(branding, text("CTP321", 27f, fg, true))
+        add(branding, text("ENGINEERING TOOL  /  J7ES", 10f, accent, true))
         header.addView(branding)
-        header.addView(action("Открыть BIN") { openFile(OPEN_FIRMWARE) })
+        header.addView(action(if (firmwareBytes == null) "＋  BIN" else "▣  BIN открыт") { openFile(OPEN_FIRMWARE) })
         root.addView(header)
         gap(root, 10)
         status = text("Январь 7.2 / J7ES  •  Прошивка не выбрана", 12f, muted)
         add(root, status)
         gap(root, 8)
-        val tabs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val tabScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            clipToPadding = false
+        }
+        val tabs = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
         listOf("Обзор", "Калибровки", "Редактор", "HEX", "Инструменты").forEach { name ->
+            val selected = tab == name
             val item = TextView(this).apply {
                 text = name
-                textSize = 11.5f
+                textSize = 13f
                 gravity = Gravity.CENTER
-                setPadding(dp(5), dp(12), dp(5), dp(12))
-                background = android.graphics.drawable.GradientDrawable().apply { setColor(if (tab == name) 0xFF123D5C.toInt() else android.graphics.Color.TRANSPARENT); cornerRadius = dp(10).toFloat() }
-                setTextColor(if (tab == name) accent else muted)
-                setTypeface(typeface, if (tab == name) Typeface.BOLD else Typeface.NORMAL)
+                setPadding(dp(16), dp(11), dp(16), dp(11))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(if (selected) 0xFF203B32.toInt() else android.graphics.Color.TRANSPARENT)
+                    cornerRadius = dp(12).toFloat()
+                    if (selected) setStroke(dp(1), accent)
+                }
+                setTextColor(if (selected) accent else muted)
+                setTypeface(typeface, if (selected) Typeface.BOLD else Typeface.NORMAL)
                 setOnClickListener { tab = name; render() }
             }
-            tabs.addView(item, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            params.marginEnd = dp(6)
+            tabs.addView(item, params)
         }
-        root.addView(tabs)
+        tabScroll.addView(tabs)
+        root.addView(tabScroll)
         val scroll = ScrollView(this).apply { isFillViewport = true }
         body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
