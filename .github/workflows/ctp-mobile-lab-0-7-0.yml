@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "CTP321AndroidStarter_0.7.0/**"
+      - "tests/**"
+      - "docs/**"
       - ".github/workflows/ctp-mobile-lab-0-7-0.yml"
   workflow_dispatch:
 
