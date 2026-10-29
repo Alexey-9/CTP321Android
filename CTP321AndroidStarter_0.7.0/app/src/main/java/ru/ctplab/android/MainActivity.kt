@@ -352,14 +352,149 @@ class MainActivity : Activity() {
         add(summary, action("Показать данные BIN рядом с описанием") {
             showCalibrationBytes(entry.first)
         })
+        add(summary, action("Открыть редактор таблицы-кандидата") {
+            rawTableSetup(entry.second)
+        })
         add(body, summary)
         gap(body)
         val table = card()
-        add(table, text("ТАБЛИЦА ЗНАЧЕНИЙ", 11f, accent, true))
+        add(table, text("ДЕКОДИРОВАНИЕ КАРТЫ", 11f, accent, true))
         gap(table, 6)
-        add(table, text("Ожидает декодирования формата .j7", 16f, fg, true))
-        add(table, text("Следующий этап — связать дескриптор с реальными адресами и форматами данных прошивки. После этого здесь появятся таблица, редактирование ячеек и сохранение файла.", 13f, muted))
+        add(table, text("Формат конкретной карты ещё не подтверждён", 16f, fg, true))
+        add(table, text("Добавлен диагностический редактор сырых байтов: можно задать смещение BIN, размеры таблицы, просматривать ячейки и редактировать их. Это НЕ автоматическое декодирование .j7: масштаб, оси, знаковость и соответствие ASM-адреса BIN нужно подтвердить отдельно. Сохраняй только копию.", 13f, muted))
         add(body, table)
+    }
+
+    private fun rawTableSetup(title: String) {
+        val bytes = firmwareBytes
+        if (bytes == null) {
+            AlertDialog.Builder(this).setTitle("Сначала открой BIN")
+                .setMessage("Открой файл прошивки, затем запусти редактор таблицы-кандидата.")
+                .setPositiveButton("Открыть BIN") { _, _ -> openFile(OPEN_FIRMWARE) }
+                .setNegativeButton("Отмена", null).show()
+            return
+        }
+        val form = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(6), dp(20), dp(4)) }
+        fun field(hintText: String, initial: String): EditText = EditText(this).apply {
+            hint = hintText; setSingleLine(true); setText(initial); setTextColor(fg); textSize = 16f
+        }
+        val offset = field("BIN offset HEX, например 6953", "6953")
+        val rows = field("Строки", "16")
+        val cols = field("Столбцы", "16")
+        val width = field("Байт на ячейку: 1 или 2", "1")
+        listOf("Смещение BIN (HEX)", "Число строк (1–64)", "Число столбцов (1–64)", "Байт на ячейку (1 или 2)").forEachIndexed { i, label ->
+            add(form, text(label, 12f, muted))
+            add(form, listOf(offset, rows, cols, width)[i])
+        }
+        AlertDialog.Builder(this).setTitle("Сырая таблица: $title")
+            .setMessage("Начальное смещение по умолчанию — только кандидат, не гарантированный адрес карты.")
+            .setView(form).setNegativeButton("Отмена", null)
+            .setPositiveButton("Показать", null).create().also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        try {
+                            val off = offset.text.toString().trim().removePrefix("0x").removePrefix("0X").toInt(16)
+                            val rr = rows.text.toString().toInt()
+                            val cc = cols.text.toString().toInt()
+                            val ww = width.text.toString().toInt()
+                            require(off >= 0 && rr in 1..64 && cc in 1..64 && ww in 1..2 && off.toLong() + rr.toLong()*cc*ww <= bytes.size)
+                            dialog.dismiss()
+                            showRawTable(title, off, rr, cc, ww)
+                        } catch (_: Exception) {
+                            Toast.makeText(this, "Проверь смещение, размеры и тип ячейки", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+                dialog.show()
+            }
+    }
+
+    private fun showRawTable(title: String, offset: Int, rows: Int, cols: Int, width: Int) {
+        val bytes = firmwareBytes ?: return
+        val outer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), dp(4)) }
+        add(outer, text("BIN offset 0x%X • %d×%d • %d байт/ячейку".format(offset, rows, cols, width), 11f, muted))
+        add(outer, text("Значения без масштаба/единиц. Нажми ячейку для редактирования.", 11f, muted))
+        val gridScroll = HorizontalScrollView(this)
+        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        gridScroll.addView(grid)
+        outer.addView(gridScroll, LinearLayout.LayoutParams(-1, dp(320)))
+        fun readCell(index: Int): Int = if (width == 1) bytes[index].toInt() and 255 else ((bytes[index].toInt() and 255) shl 8) or (bytes[index+1].toInt() and 255)
+        fun draw() {
+            grid.removeAllViews()
+            for (r in 0 until rows) {
+                val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                for (c in 0 until cols) {
+                    val idx = offset + (r * cols + c) * width
+                    val value = readCell(idx)
+                    val cell = TextView(this).apply {
+                        text = if (width == 1) "%02X".format(value) else "%04X".format(value)
+                        gravity = Gravity.CENTER
+                        textSize = 11f
+                        typeface = Typeface.MONOSPACE
+                        setTextColor(fg)
+                        setPadding(dp(5), dp(9), dp(5), dp(9))
+                        background = android.graphics.drawable.GradientDrawable().apply {
+                            setColor(android.graphics.Color.rgb(35 + value % 45, 55 + value % 65, 55 + value % 45))
+                            setStroke(dp(1), 0xFF17191D.toInt())
+                        }
+                        setOnClickListener { editRawCell(title, idx, width) { draw() } }
+                    }
+                    line.addView(cell, LinearLayout.LayoutParams(dp(if (width == 1) 39 else 49), dp(38)))
+                }
+                grid.addView(line)
+            }
+        }
+        draw()
+        val preview = TextView(this).apply { setTextColor(fg); textSize = 11f; typeface = Typeface.MONOSPACE }
+        fun drawGraph() {
+            val values = (0 until rows*cols).map { readCell(offset + it*width) }
+            val maxValue = (values.maxOrNull() ?: 1).coerceAtLeast(1)
+            preview.text = values.take(64).mapIndexed { i, v ->
+                "%02d %5d %s".format(i, v, "▮".repeat((v.toDouble()/maxValue*18).toInt().coerceIn(0,18)))
+            }.joinToString("\\n")
+        }
+        drawGraph()
+        add(outer, preview)
+        AlertDialog.Builder(this).setTitle("Таблица-кандидат: $title").setView(outer)
+            .setPositiveButton("Готово", null)
+            .setNeutralButton("Сохранить копию BIN", null).create().also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { dialog.dismiss(); saveCopy() }
+                }
+                dialog.show()
+            }
+    }
+
+    private fun editRawCell(title: String, index: Int, width: Int, onChanged: () -> Unit) {
+        val bytes = firmwareBytes ?: return
+        val old = if (width == 1) bytes[index].toInt() and 255 else ((bytes[index].toInt() and 255) shl 8) or (bytes[index+1].toInt() and 255)
+        val input = EditText(this).apply {
+            setSingleLine(true); setText(old.toString()); setTextColor(fg)
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+        }
+        AlertDialog.Builder(this).setTitle("Изменить ячейку • 0x%X".format(index))
+            .setMessage("Калибровка: $title\\nСтарое сырое значение: $old")
+            .setView(input).setNegativeButton("Отмена", null)
+            .setPositiveButton("Применить", null).create().also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val v = input.text.toString().toIntOrNull()
+                        val max = if (width == 1) 255 else 65535
+                        if (v == null || v !in 0..max) {
+                            Toast.makeText(this, "Допустимый диапазон 0–$max", Toast.LENGTH_SHORT).show()
+                        } else {
+                            if (width == 1) bytes[index] = v.toByte() else {
+                                bytes[index] = (v shr 8).toByte(); bytes[index+1] = v.toByte()
+                            }
+                            firmwareDirty = true
+                            status.text = "$firmwareName • есть изменения"
+                            dialog.dismiss()
+                            onChanged()
+                        }
+                    }
+                }
+                dialog.show()
+            }
     }
 
 
