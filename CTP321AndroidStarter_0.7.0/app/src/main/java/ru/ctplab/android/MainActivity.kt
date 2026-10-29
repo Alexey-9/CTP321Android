@@ -33,6 +33,7 @@ class MainActivity : Activity() {
     private var editorMapAddress: Int? = null
     private var editorMapName = ""
     private var firmwareDirty = false
+    private val undoStack = java.util.ArrayDeque<ByteArray>()
     private lateinit var body: LinearLayout
     private lateinit var status: TextView
 
@@ -198,6 +199,11 @@ class MainActivity : Activity() {
         add(detail, text(editorMapName, 18f, fg, true))
         add(detail, text("BIN 0x%04X • ${map.bytesExpected} байт • UINT8 • исходные значения".format(address), 12f, muted))
         add(detail, text("Физическая шкала и значения оси ещё не подтверждены; числа показаны как сырые байты.", 12f, muted))
+        gap(detail, 8)
+        val editActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        editActions.addView(action("↶ Отменить последнее изменение") { undoLastEdit() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        gap(detail, 4)
+        add(detail, editActions)
         gap(detail, 8)
         val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         for (row in 0 until 3) {
@@ -604,6 +610,18 @@ class MainActivity : Activity() {
             }
     }
 
+    private fun undoLastEdit() {
+        if (undoStack.isEmpty()) {
+            Toast.makeText(this, "Нет изменений для отмены", Toast.LENGTH_SHORT).show()
+            return
+        }
+        firmwareBytes = undoStack.removeLast()
+        firmwareDirty = true
+        status.text = "$firmwareName • изменение отменено"
+        Toast.makeText(this, "Последнее изменение отменено", Toast.LENGTH_SHORT).show()
+        render()
+    }
+
     private fun editRawCell(title: String, index: Int, width: Int, onChanged: () -> Unit) {
         val bytes = firmwareBytes ?: return
         val old = if (width == 1) bytes[index].toInt() and 255 else ((bytes[index].toInt() and 255) shl 8) or (bytes[index+1].toInt() and 255)
@@ -622,6 +640,8 @@ class MainActivity : Activity() {
                         if (v == null || v !in 0..max) {
                             Toast.makeText(this, "Допустимый диапазон 0–$max", Toast.LENGTH_SHORT).show()
                         } else {
+                            undoStack.addLast(bytes.copyOf())
+                            while (undoStack.size > 20) undoStack.removeFirst()
                             if (width == 1) bytes[index] = v.toByte() else {
                                 bytes[index] = (v shr 8).toByte(); bytes[index+1] = v.toByte()
                             }
