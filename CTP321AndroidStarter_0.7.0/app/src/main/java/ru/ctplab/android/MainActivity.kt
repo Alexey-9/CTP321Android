@@ -1145,6 +1145,20 @@ class MainActivity : Activity() {
         val magic = if (bytes.size >= 3) String(bytes, 0, 3, Charsets.US_ASCII) else "?"
         report.append("Файл: " + descriptorName + "\nРазмер: " + bytes.size + " байт\nФормат: " + magic + "\nSHA-256: " + sha256(bytes) + "\n")
         report.append("Текстовые фрагменты (Windows-1251): " + found.size + "\n\n")
+        val markers = decodeJ7Markers()
+        report.append("СТРУКТУРНЫЙ АНАЛИЗ\n")
+        report.append("Метки адресов: ${markers.size}. Метки !NNN-AAAA[-LL] извлечены как кандидаты; сами по себе они не доказывают адрес карты в BIN.\n")
+        val calibrationTerms = listOf("состав смеси", "отношение воздух", "температура", "угол опережения", "дроссел", "давлен", "оборотов", "топлив", "зажиган")
+        val candidates = found.filter { (_, value) -> calibrationTerms.any { value.contains(it, ignoreCase = true) } }
+        report.append("Строки, похожие на названия/оси калибровок: ${candidates.size}\n")
+        candidates.take(100).forEach { (offset, value) ->
+            val nearby = markers.minByOrNull { kotlin.math.abs(it.address - offset) }
+            report.append("• 0x%08X  ".format(offset))
+            report.append(value)
+            if (nearby != null) report.append("  [ближайшая метка ${nearby.label}; связь не подтверждена]")
+            report.append('\n')
+        }
+        report.append("\nПОЛНЫЙ СПИСОК СТРОК\n")
         found.take(150).forEach { (offset, value) ->
             report.append("0x%08X  ".format(offset))
             report.append(value)
@@ -1152,7 +1166,7 @@ class MainActivity : Activity() {
         }
         if (found.isEmpty()) report.append("Читаемые строки не найдены.")
         if (found.size > 150) report.append("\n… показаны первые 150 фрагментов.")
-        report.append("\n\nНазвания доступны во вкладке «Калибровки». Значения таблиц пока не декодируются.")
+        report.append("\n\nВажно: декодированы строки и адресные метки контейнера .j7, но не все бинарные поля записи карты. Для вывода осей, размерности и масштаба требуется подтверждённая структура записи и адресное отображение BIN.")
         AlertDialog.Builder(this).setTitle("Анализ .j7").setMessage(report.toString())
             .setPositiveButton("Открыть калибровки") { _, _ -> tab = "Калибровки"; selectedCalibration = null; render() }
             .setNegativeButton("Закрыть", null).show()
