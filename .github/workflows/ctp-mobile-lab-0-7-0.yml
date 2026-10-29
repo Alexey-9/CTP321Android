@@ -53,3 +53,6 @@ jobs:
           path: CTP321AndroidStarter_0.7.0/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Run J7 format draft regression tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
