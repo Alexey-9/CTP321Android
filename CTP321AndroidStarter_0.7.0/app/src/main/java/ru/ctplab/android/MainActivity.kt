@@ -279,6 +279,7 @@ class MainActivity : Activity() {
             })
             gap(referenceCard, 4)
         }
+        add(referenceCard, action("Проверить карты по сигнатурам ASM") { showCalibrationDecoderReport() })
         add(body, referenceCard)
         gap(body)
 
@@ -564,6 +565,50 @@ class MainActivity : Activity() {
             .setMessage("ASM/BIN-кандидат: 0x%04X\\nРазмер просмотра: %d×%d = %d байт\\n\\n%s".format(address, rows, cols, count, note))
             .setPositiveButton("Открыть значения") { _, _ -> showRawTable(name, address, rows, cols, 1) }
             .setNegativeButton("Закрыть", null).show()
+    }
+
+    private data class KnownCalibration(
+        val address: Int,
+        val name: String,
+        val detail: String,
+        val signature: IntArray,
+        val bytesExpected: Int
+    )
+
+    private fun knownCalibrationCatalog(): List<KnownCalibration> = listOf(
+        KnownCalibration(0x6953, "Смесь: обороты × дроссель", "AFR; оси: обороты и положение дросселя", intArrayOf(0x80,0x80,0x7C,0x7A,0x7A,0x7D,0x81,0x85), 256),
+        KnownCalibration(0x6A53, "Базовый состав смеси", "AFR; ось: температура двигателя", intArrayOf(0x48,0x48,0x48,0x48,0x48,0x48,0x48,0x48), 39),
+        KnownCalibration(0x6A7A, "Коррекция базового состава", "Коэффициент; ось: температура двигателя", intArrayOf(0x83,0x87,0x8D,0x97,0xA4,0xB4,0xC3,0xD1), 39),
+        KnownCalibration(0x6AC8, "УОЗ от давления", "Угол зажигания; оси: обороты и абсолютное давление", intArrayOf(0x33,0x35,0x37,0x39,0x3E,0x43,0x47,0x4A), 256),
+        KnownCalibration(0x8193, "Весовая коррекция топливоподачи", "Область из FF в открытом исходнике; вероятно, не настроена", intArrayOf(0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF), 256),
+        KnownCalibration(0x83BA, "Смесь: обороты × давление", "AFR; оси: обороты и абсолютное давление", intArrayOf(0x7B,0x7B,0x7B,0x7B,0x7E,0x82,0x83,0x84), 256),
+        KnownCalibration(0x8F4A, "Коэффициент топливной плёнки", "Коэффициент; ось: температура двигателя", intArrayOf(0x0F,0x0F,0x0F,0x0F,0x0F,0x0F,0x0F,0x0E), 39)
+    )
+
+    private fun showCalibrationDecoderReport() {
+        val bytes = firmwareBytes
+        if (bytes == null) {
+            AlertDialog.Builder(this).setTitle("Нужен BIN")
+                .setMessage("Сначала открой файл прошивки, затем запусти проверку карт.")
+                .setPositiveButton("Открыть BIN") { _, _ -> openFile(OPEN_FIRMWARE) }
+                .setNegativeButton("Отмена", null).show()
+            return
+        }
+        val report = knownCalibrationCatalog().joinToString("\\n\\n") { map ->
+            val inRange = map.address >= 0 && map.address.toLong() + map.bytesExpected <= bytes.size
+            val matches = inRange && map.signature.indices.all { (bytes[map.address + it].toInt() and 255) == map.signature[it] }
+            val actual = if (inRange) (0 until min(8, map.bytesExpected)).joinToString(" ") { "%02X".format(bytes[map.address + it].toInt() and 255) } else "вне файла"
+            val status = when {
+                !inRange -> "ВНЕ BIN"
+                matches && map.address == 0x8193 -> "СОВПАДЕНИЕ, область FF"
+                matches -> "СИГНАТУРА СОВПАЛА"
+                else -> "НЕ СОВПАЛА — адрес не подтверждён"
+            }
+            "%s\\nАдрес 0x%04X • длина по ASM: %d байт\\n%s\\n%s\\nBIN: %s".format(map.name, map.address, map.bytesExpected, map.detail, status, actual)
+        }
+        AlertDialog.Builder(this).setTitle("Декодер J7ES • проверка сигнатур")
+            .setMessage(report)
+            .setPositiveButton("OK", null).show()
     }
 
     private fun showReferenceMapCandidate(address: Int, name: String, detail: String) {
