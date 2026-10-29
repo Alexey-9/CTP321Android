@@ -242,11 +242,7 @@ class MainActivity : Activity() {
         )
         references.forEach { (address, name, detail) ->
             add(referenceCard, action("$name  •  0x%04X".format(address)) {
-                AlertDialog.Builder(this)
-                    .setTitle("Справочная карта")
-                    .setMessage("$name\nАдрес в открытом ASM: 0x%04X\n$detail\n\nЭтот адрес нельзя автоматически применять к открытому BIN без проверки версии и смещения.".format(address))
-                    .setPositiveButton("Понятно", null)
-                    .show()
+                showReferenceMapCandidate(address, name, detail)
             })
             gap(referenceCard, 4)
         }
@@ -347,6 +343,41 @@ class MainActivity : Activity() {
         add(body, table)
     }
 
+
+    /**
+     * Diagnostic preview only: public J7ES ASM addresses are not yet proven to be
+     * direct offsets in every BIN variant. Never use this preview for editing/flashing.
+     */
+    private fun showReferenceMapCandidate(address: Int, name: String, detail: String) {
+        val bytes = firmwareBytes
+        if (bytes == null) {
+            AlertDialog.Builder(this).setTitle("Сначала открой BIN")
+                .setMessage("Справочный адрес ASM: 0x%04X\nОткрой свою прошивку, чтобы посмотреть байты-кандидаты.".format(address))
+                .setPositiveButton("Открыть BIN") { _, _ -> openFile(OPEN_FIRMWARE) }
+                .setNegativeButton("Отмена", null).show()
+            return
+        }
+        if (address < 0 || address + 256 > bytes.size) {
+            AlertDialog.Builder(this).setTitle("Адрес вне файла")
+                .setMessage("ASM: 0x%04X; размер BIN: 0x%X. Нужна проверка адресного отображения.".format(address, bytes.size))
+                .setPositiveButton("OK", null).show()
+            return
+        }
+        val out = StringBuilder()
+        out.append("ASM: 0x%04X • предварительное файловое смещение: 0x%04X\n".format(address, address))
+        out.append("BIN: $firmwareName\n$name\n$detail\n\n")
+        out.append("16×16 байт-кандидатов (HEX):\n")
+        for (row in 0 until 16) {
+            val off = address + row * 16
+            out.append("%04X  ".format(off))
+            for (col in 0 until 16) out.append("%02X ".format(bytes[off + col].toInt() and 0xFF))
+            out.append('\n')
+        }
+        out.append("\nВАЖНО: это только диагностический просмотр байтов по тому же числу смещения. Адрес ASM ≠ гарантированное смещение BIN. Размер таблицы, оси и масштаб не подтверждены; не редактируй и не прошивай по этому просмотру.")
+        AlertDialog.Builder(this).setTitle("Кандидат карты • HEX")
+            .setMessage(out.toString())
+            .setPositiveButton("OK", null).show()
+    }
 
     private data class J7MapMarker(val label: String, val address: Int, val lengthCandidate: Int?)
 
