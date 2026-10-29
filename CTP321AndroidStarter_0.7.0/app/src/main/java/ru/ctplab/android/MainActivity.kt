@@ -34,6 +34,7 @@ class MainActivity : Activity() {
     private var editorMapName = ""
     private var firmwareDirty = false
     private val undoStack = java.util.ArrayDeque<ByteArray>()
+    private val redoStack = java.util.ArrayDeque<ByteArray>()
     private lateinit var body: LinearLayout
     private lateinit var status: TextView
 
@@ -201,7 +202,8 @@ class MainActivity : Activity() {
         add(detail, text("Физическая шкала и значения оси ещё не подтверждены; числа показаны как сырые байты.", 12f, muted))
         gap(detail, 8)
         val editActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        editActions.addView(action("↶ Отменить последнее изменение") { undoLastEdit() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        editActions.addView(action("↶ Отменить") { undoLastEdit() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        editActions.addView(action("↷ Повторить") { redoLastEdit() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         gap(detail, 4)
         add(detail, editActions)
         gap(detail, 8)
@@ -615,10 +617,27 @@ class MainActivity : Activity() {
             Toast.makeText(this, "Нет изменений для отмены", Toast.LENGTH_SHORT).show()
             return
         }
+        redoStack.addLast(firmwareBytes?.copyOf() ?: return)
+        while (redoStack.size > 20) redoStack.removeFirst()
         firmwareBytes = undoStack.removeLast()
         firmwareDirty = true
         status.text = "$firmwareName • изменение отменено"
         Toast.makeText(this, "Последнее изменение отменено", Toast.LENGTH_SHORT).show()
+        render()
+    }
+
+    private fun redoLastEdit() {
+        if (redoStack.isEmpty()) {
+            Toast.makeText(this, "Нет изменений для повтора", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val current = firmwareBytes ?: return
+        undoStack.addLast(current.copyOf())
+        while (undoStack.size > 20) undoStack.removeFirst()
+        firmwareBytes = redoStack.removeLast()
+        firmwareDirty = true
+        status.text = "$firmwareName • изменение восстановлено"
+        Toast.makeText(this, "Изменение повторено", Toast.LENGTH_SHORT).show()
         render()
     }
 
@@ -642,6 +661,7 @@ class MainActivity : Activity() {
                         } else {
                             undoStack.addLast(bytes.copyOf())
                             while (undoStack.size > 20) undoStack.removeFirst()
+                            redoStack.clear()
                             if (width == 1) bytes[index] = v.toByte() else {
                                 bytes[index] = (v shr 8).toByte(); bytes[index+1] = v.toByte()
                             }
