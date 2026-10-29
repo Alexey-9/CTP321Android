@@ -206,6 +206,11 @@ class MainActivity : Activity() {
         editActions.addView(action("↷ Повторить") { redoLastEdit() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         gap(detail, 4)
         add(detail, editActions)
+        gap(detail, 6)
+        val dataActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        dataActions.addView(action("Копировать карту") { copyRawMap(address, map.bytesExpected) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        dataActions.addView(action("Вставить значения") { pasteRawMap(address, map.bytesExpected) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        add(detail, dataActions)
         gap(detail, 8)
         val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         for (row in 0 until 3) {
@@ -607,6 +612,61 @@ class MainActivity : Activity() {
             .setNeutralButton("Сохранить копию BIN", null).create().also { dialog ->
                 dialog.setOnShowListener {
                     dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { dialog.dismiss(); saveCopy() }
+                }
+                dialog.show()
+            }
+    }
+
+    private fun copyRawMap(address: Int, length: Int) {
+        val bytes = firmwareBytes ?: return
+        if (address < 0 || length <= 0 || address + length > bytes.size) {
+            Toast.makeText(this, "Карта выходит за границы BIN", Toast.LENGTH_LONG).show()
+            return
+        }
+        val values = (address until address + length).joinToString(" ") { (bytes[it].toInt() and 255).toString() }
+        val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("CTP raw calibration", values))
+        Toast.makeText(this, "Скопировано $length сырых значений", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun pasteRawMap(address: Int, length: Int) {
+        val bytes = firmwareBytes ?: return
+        if (address < 0 || length <= 0 || address + length > bytes.size) {
+            Toast.makeText(this, "Карта выходит за границы BIN", Toast.LENGTH_LONG).show()
+            return
+        }
+        val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clipText = if (clipboard.hasPrimaryClip()) clipboard.primaryClip?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty() else ""
+        val input = EditText(this).apply {
+            setText(clipText)
+            setTextColor(fg)
+            hint = "Числа 0–255 через пробел или запятую"
+            minLines = 3
+            gravity = Gravity.TOP
+        }
+        AlertDialog.Builder(this).setTitle("Вставить сырые значения")
+            .setMessage("Нужно ровно $length целых чисел от 0 до 255. Это сырые байты, не физические единицы.")
+            .setView(input).setNegativeButton("Отмена", null)
+            .setPositiveButton("Применить", null).create().also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val raw = input.text.toString().trim()
+                        val tokens = raw.split(Regex("[\\s,;]+")).filter { it.isNotBlank() }
+                        val values = tokens.map { it.toIntOrNull() }
+                        if (values.size != length || values.any { it == null || it !in 0..255 }) {
+                            Toast.makeText(this, "Нужно ровно $length чисел в диапазоне 0–255", Toast.LENGTH_LONG).show()
+                            return@setOnClickListener
+                        }
+                        undoStack.addLast(bytes.copyOf())
+                        while (undoStack.size > 20) undoStack.removeFirst()
+                        redoStack.clear()
+                        values.forEachIndexed { i, value -> bytes[address + i] = value!!.toByte() }
+                        firmwareDirty = true
+                        status.text = "$firmwareName • есть изменения"
+                        dialog.dismiss()
+                        Toast.makeText(this, "Заменено $length байт; можно отменить", Toast.LENGTH_SHORT).show()
+                        render()
+                    }
                 }
                 dialog.show()
             }
