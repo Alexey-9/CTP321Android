@@ -380,7 +380,12 @@ class MainActivity : Activity() {
         val markers = decodeJ7Markers()
         val markerCard = card()
         add(markerCard, text("МЕТКИ ДЕСКРИПТОРА", 11f, accent, true))
-        add(markerCard, text("Найдено меток: ${markers.size}. Адреса ниже — кандидаты, а не подтверждённые карты.", 12f, muted))
+        val markerTypes = markers.mapNotNull { it.typeCodeCandidate }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }
+        add(markerCard, text("Найдено меток: ${markers.size}. Формат токена: !ID-XXXX[-YY]. XXXX — поле-кандидат адреса, YY — неизвестный код записи (не размер карты). Ни одно поле пока не считается доказанным смещением BIN.", 12f, muted))
+        if (markerTypes.isNotEmpty()) {
+            add(markerCard, text("Коды YY в этом дескрипторе: " + markerTypes.joinToString { "%02X × %d".format(it.key, it.value) }, 11f, muted))
+            gap(markerCard, 4)
+        }
         gap(markerCard, 6)
         if (markers.isEmpty()) {
             add(markerCard, text("Метки адресов не найдены.", 11f, muted))
@@ -894,7 +899,7 @@ class MainActivity : Activity() {
             .setPositiveButton("OK", null).show()
     }
 
-    private data class J7MapMarker(val label: String, val address: Int, val lengthCandidate: Int?, val descriptorOffset: Int)
+    private data class J7MapMarker(val label: String, val address: Int, val typeCodeCandidate: Int?, val descriptorOffset: Int)
 
     private fun decodeJ7Markers(): List<J7MapMarker> {
         val bytes = descriptorBytes ?: return emptyList()
