@@ -367,8 +367,8 @@ class MainActivity : Activity() {
         }
         flush()
         val report = StringBuilder()
-        report.append("Файл: $descriptorName\nРазмер: \${bytes.size} байт\nSHA-256: \${sha256(bytes)}\n")
-        report.append("Найдено текстовых фрагментов (от 4 символов): \${found.size}\n\n")
+        report.append("Файл: " + descriptorName + "\nРазмер: " + bytes.size + " байт\nSHA-256: " + sha256(bytes) + "\n")
+        report.append("Найдено текстовых фрагментов (от 4 символов): " + found.size + "\n\n")
         found.take(150).forEach { (offset, value) ->
             report.append("0x%08X  ".format(offset))
             report.append(value)
