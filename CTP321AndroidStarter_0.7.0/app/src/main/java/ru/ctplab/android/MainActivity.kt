@@ -1175,6 +1175,10 @@ class MainActivity : Activity() {
                     if (offset < 0 || offset >= bytes.size || value !in 0..255 || valueText.isBlank()) {
                         throw IllegalArgumentException("Адрес или значение вне допустимого диапазона")
                     }
+                    // Record a full snapshot so byte edits participate in Undo/Redo.
+                    undoStack.addLast(bytes.copyOf())
+                    while (undoStack.size > 20) undoStack.removeFirst()
+                    redoStack.clear()
                     bytes[offset.toInt()] = value.toByte()
                     firmwareDirty = true
                     status.text = "$firmwareName • ${bytes.size} байт • есть изменения"
