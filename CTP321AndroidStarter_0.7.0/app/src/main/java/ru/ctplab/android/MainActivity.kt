@@ -598,13 +598,31 @@ class MainActivity : Activity() {
             val inRange = map.address >= 0 && map.address.toLong() + map.bytesExpected <= bytes.size
             val matches = inRange && map.signature.indices.all { (bytes[map.address + it].toInt() and 255) == map.signature[it] }
             val actual = if (inRange) (0 until min(8, map.bytesExpected)).joinToString(" ") { "%02X".format(bytes[map.address + it].toInt() and 255) } else "вне файла"
+            val hits = mutableListOf<Int>()
+            if (map.signature.size >= 6 && bytes.size >= map.signature.size) {
+                for (p in 0..bytes.size - map.signature.size) {
+                    var same = true
+                    for (j in map.signature.indices) {
+                        if ((bytes[p + j].toInt() and 255) != map.signature[j]) { same = false; break }
+                    }
+                    if (same) {
+                        hits.add(p)
+                        if (hits.size >= 6) break
+                    }
+                }
+            }
+            val hitText = when {
+                hits.isEmpty() -> "Совпадения сигнатуры в BIN: не найдены"
+                hits.size >= 6 -> "Совпадения первых байтов в BIN (первые 6): " + hits.joinToString { "0x%04X".format(it) } + "…"
+                else -> "Совпадения первых байтов в BIN: " + hits.joinToString { "0x%04X".format(it) }
+            }
             val status = when {
                 !inRange -> "ВНЕ BIN"
                 matches && map.address == 0x8193 -> "СОВПАДЕНИЕ, область FF"
-                matches -> "СИГНАТУРА СОВПАЛА"
-                else -> "НЕ СОВПАЛА — адрес не подтверждён"
+                matches -> "СИГНАТУРА СОВПАЛА ПО АДРЕСУ"
+                else -> "ПО АДРЕСУ НЕ СОВПАЛА — адрес не подтверждён"
             }
-            "%s\nАдрес 0x%04X • длина по ASM: %d байт\n%s\n%s\nBIN: %s".format(map.name, map.address, map.bytesExpected, map.detail, status, actual)
+            "%s\nАдрес ASM 0x%04X • длина: %d байт\n%s\n%s\nBIN по адресу: %s\n%s".format(map.name, map.address, map.bytesExpected, map.detail, status, actual, hitText)
         }
         AlertDialog.Builder(this).setTitle("Декодер J7ES • проверка сигнатур")
             .setMessage(report)
