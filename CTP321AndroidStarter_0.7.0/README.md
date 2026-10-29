@@ -1,13 +1,17 @@
-# CTP Mobile Lab 0.7.0
+# CTP Mobile Lab 0.8.0
 
-Android project prototype for local firmware file inspection.
+Android prototype for local Январь 7.2 / J7ES firmware inspection.
 
-Features planned/implemented in this prototype:
-- Dark mobile interface
-- Open firmware file
+## Implemented
+- Open BIN/ROM and .j7 calibration descriptor files
 - File size and SHA-256
-- HEX preview (first 512 bytes)
+- HEX preview
 - Byte-by-byte file comparison
-- Save a copy
+- Save a copy of the firmware
+- Edit one byte by hexadecimal file offset and save an edited copy
 
-Calibration-map decoding for Январь 7.2 / J7ES is not implemented yet.
+## Important limitations
+- .j7 names are currently extracted as text fragments; this is not a validated calibration-table parser.
+- Calibration values, axes, dimensions, scaling and firmware addresses are not decoded yet.
+- Byte editing does not recalculate ECU checksums or validate firmware compatibility. Never flash a modified file until its format and checksum requirements have been verified.
+- This build is a development step, not a complete replacement for ChipTuningPRO/CTP321.
