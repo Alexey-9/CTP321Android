@@ -561,10 +561,20 @@ class MainActivity : Activity() {
             else ->
                 "Для этого адреса нет проверочной сигнатуры в приложении. Адрес ASM сам по себе не доказывает, что это файловое смещение BIN. Значения показаны только для диагностики."
         }
-        AlertDialog.Builder(this).setTitle(name)
-            .setMessage("ASM/BIN-кандидат: 0x%04X\\nРазмер просмотра: %d×%d = %d байт\\n\\n%s".format(address, rows, cols, count, note))
-            .setPositiveButton("Открыть значения") { _, _ -> showRawTable(name, address, rows, cols, 1) }
-            .setNegativeButton("Закрыть", null).show()
+        val canEditKnown = expected != null && signatureMatches == true &&
+            address != 0x8193 && (address == 0x6A53 || address == 0x6A7A || address == 0x8F4A)
+        val dialog = AlertDialog.Builder(this).setTitle(name)
+            .setMessage("ASM/BIN-кандидат: 0x%04X\\nРазмер просмотра: %d×%d = %d байт\\n\\n%s\\n\\nРедактор показывает исходные байты HEX/DEC. Физические единицы и ось температуры пока не декодированы.".format(address, rows, cols, count, note))
+            .setPositiveButton(if (canEditKnown) "Открыть редактор" else "Только закрыть", null)
+            .setNegativeButton("Закрыть", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                dialog.dismiss()
+                if (canEditKnown) showRawTable(name, address, rows, cols, 1)
+                else Toast.makeText(this, "Редактирование заблокировано: карта не подтверждена для этого BIN.", Toast.LENGTH_LONG).show()
+            }
+        }
+        dialog.show()
     }
 
     private data class KnownCalibration(
