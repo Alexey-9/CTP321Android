@@ -487,16 +487,16 @@ class MainActivity : Activity() {
         val found = descriptorStrings()
         val report = StringBuilder()
         val magic = if (bytes.size >= 3) String(bytes, 0, 3, Charsets.US_ASCII) else "?"
-        report.append("Файл: " + descriptorName + "\\nРазмер: " + bytes.size + " байт\\nФормат: " + magic + "\\nSHA-256: " + sha256(bytes) + "\\n")
-        report.append("Текстовые фрагменты (Windows-1251): " + found.size + "\\n\\n")
+        report.append("Файл: " + descriptorName + "\nРазмер: " + bytes.size + " байт\nФормат: " + magic + "\nSHA-256: " + sha256(bytes) + "\n")
+        report.append("Текстовые фрагменты (Windows-1251): " + found.size + "\n\n")
         found.take(150).forEach { (offset, value) ->
             report.append("0x%08X  ".format(offset))
             report.append(value)
-            report.append('\\n')
+            report.append('\n')
         }
         if (found.isEmpty()) report.append("Читаемые строки не найдены.")
-        if (found.size > 150) report.append("\\n… показаны первые 150 фрагментов.")
-        report.append("\\n\\nНазвания доступны во вкладке «Калибровки». Значения таблиц пока не декодируются.")
+        if (found.size > 150) report.append("\n… показаны первые 150 фрагментов.")
+        report.append("\n\nНазвания доступны во вкладке «Калибровки». Значения таблиц пока не декодируются.")
         AlertDialog.Builder(this).setTitle("Анализ .j7").setMessage(report.toString())
             .setPositiveButton("Открыть калибровки") { _, _ -> tab = "Калибровки"; selectedCalibration = null; render() }
             .setNegativeButton("Закрыть", null).show()
