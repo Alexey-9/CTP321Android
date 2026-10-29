@@ -138,7 +138,7 @@ class MainActivity : Activity() {
         }
         scroll.addView(body)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(text("CTP Mobile Lab 0.7.0  •  локальная работа с файлами", 10f, muted).apply { gravity = Gravity.CENTER })
+        root.addView(text("CTP Mobile Lab 0.8.5  •  локальная работа с файлами", 10f, muted).apply { gravity = Gravity.CENTER })
         setContentView(root)
         render()
     }
