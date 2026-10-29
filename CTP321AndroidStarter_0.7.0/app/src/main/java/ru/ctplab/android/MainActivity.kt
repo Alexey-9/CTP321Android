@@ -224,6 +224,38 @@ class MainActivity : Activity() {
             gap(grid, 3)
         }
         add(detail, grid)
+        gap(detail, 10)
+        add(detail, text("ГРАФИК СЫРЫХ ЗНАЧЕНИЙ", 11f, accent, true))
+        add(detail, text("Ось X — индекс байта в карте; ось Y — значение 0–255. Это не физические единицы двигателя.", 11f, muted))
+        val plot = object : View(this) {
+            private val linePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = accent; strokeWidth = dp(2).toFloat(); style = android.graphics.Paint.Style.STROKE
+            }
+            private val gridPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = 0xFF394150.toInt(); strokeWidth = dp(1).toFloat()
+            }
+            private val pointPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = fg; style = android.graphics.Paint.Style.FILL
+            }
+            override fun onDraw(canvas: android.graphics.Canvas) {
+                super.onDraw(canvas)
+                val left = dp(8).toFloat(); val right = width - dp(8).toFloat()
+                val top = dp(8).toFloat(); val bottom = height - dp(8).toFloat()
+                for (n in 0..4) {
+                    val y = top + (bottom - top) * n / 4f
+                    canvas.drawLine(left, y, right, y, gridPaint)
+                }
+                val path = android.graphics.Path()
+                for (i in 0 until map.bytesExpected) {
+                    val v = bytes[address + i].toInt() and 255
+                    val x = left + (right-left) * i / (map.bytesExpected-1).toFloat()
+                    val y = bottom - (bottom-top) * v / 255f
+                    if (i == 0) path.moveTo(x,y) else path.lineTo(x,y)
+                }
+                canvas.drawPath(path, linePaint)
+            }
+        }.apply { layoutParams = LinearLayout.LayoutParams(-1, dp(150)) }
+        add(detail, plot)
         gap(detail, 8)
         add(detail, action("Сохранить копию BIN") { saveCopy() })
         gap(detail, 5)
