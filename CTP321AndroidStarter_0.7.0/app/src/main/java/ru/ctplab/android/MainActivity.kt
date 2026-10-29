@@ -28,6 +28,8 @@ class MainActivity : Activity() {
     private var compareBytes: ByteArray? = null
     private var descriptorName = ""
     private var descriptorBytes: ByteArray? = null
+    private var selectedCalibration: Pair<Int, String>? = null
+    private var calibrationSearch = ""
     private lateinit var body: LinearLayout
     private lateinit var status: TextView
 
@@ -184,31 +186,165 @@ class MainActivity : Activity() {
     }
 
     private fun calibrations() {
-        add(body, text("Калибровки", 22f, fg, true))
-        add(body, text("Рабочая область редактора карт", 13f, muted))
-        gap(body)
-        val c = card()
-        add(c, text("Январь 7.2  /  J7ES", 17f, fg, true))
-        gap(c, 5)
-        add(c, text("Здесь планируется список карт топлива, зажигания, пусковых и переходных режимов. Для этого нужно реализовать декодирование адресов и форматов карт конкретной прошивки.", 13f, muted))
-        gap(c, 8)
-        add(c, text(if (firmwareBytes == null) "Сначала открой файл прошивки." else "Загружено ${firmwareBytes!!.size} байт. Декодер карт не подключён.", 12f, accent))
-        gap(c, 8)
-        add(c, action("Выбрать прошивку BIN") { openFile(OPEN_FIRMWARE) })
-        gap(c, 7)
-        add(c, action("Открыть описание карт .j7") { openFile(OPEN_DESCRIPTOR) })
-        if (descriptorBytes != null) {
-            gap(c, 8)
-            add(c, text("Описание: $descriptorName • ${descriptorBytes!!.size} байт", 12f, accent))
-            gap(c, 5)
-            add(c, action("Анализировать строки и смещения") { showDescriptorAnalysis() })
+        val selected = selectedCalibration
+        if (selected != null) {
+            calibrationDetail(selected)
+            return
         }
-        add(body, c)
+        add(body, text("Калибровки", 22f, fg, true))
+        add(body, text("Список формируется из загруженного описания .j7 — без подставных названий и значений.", 13f, muted))
         gap(body)
-        val warning = card()
-        add(warning, text("Важно", 14f, 0xFFFFC66D.toInt(), true))
-        add(warning, text("Не записывай изменения в ЭБУ по этому экрану: это пока интерфейс, а не готовый редактор калибровок.", 13f, muted))
-        add(body, warning)
+        val fileCard = card()
+        add(fileCard, text("ФАЙЛЫ КАЛИБРОВОК", 11f, accent, true))
+        gap(fileCard, 6)
+        add(fileCard, text(if (descriptorBytes == null) "Описание карт не загружено" else "$descriptorName • ${descriptorBytes!!.size} байт", 13f, fg, true))
+        add(fileCard, action("Открыть описание карт .j7") { openFile(OPEN_DESCRIPTOR) })
+        gap(body)
+        val bytes = descriptorBytes
+        if (bytes == null) {
+            val c = card()
+            add(c, text("Сначала загрузи файл описания .j7, в котором находятся названия калибровок.", 13f, muted))
+            add(c, action("Выбрать .j7") { openFile(OPEN_DESCRIPTOR) })
+            add(body, c)
+            return
+        }
+        val search = EditText(this).apply {
+            setSingleLine(true)
+            hint = "Поиск по названиям калибровок"
+            setTextColor(fg)
+            setHintTextColor(muted)
+            textSize = 14f
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            setBackground(android.graphics.drawable.GradientDrawable().apply {
+                setColor(panel)
+                cornerRadius = dp(10).toFloat()
+                setStroke(dp(1), 0xFF3A414B.toInt())
+            })
+            setText(calibrationSearch)
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    calibrationSearch = s?.toString() ?: ""
+                    renderCalibrationList()
+                }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
+        }
+        add(body, search)
+        gap(body, 8)
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        list.tag = "calibration_list"
+        add(body, list)
+        renderCalibrationList()
+        gap(body)
+        val note = card()
+        add(note, text("СЛЕДУЮЩИЙ ЭТАП", 11f, accent, true))
+        add(note, text("Названия уже берутся из .j7. Для таблиц с реальными значениями, осями и единицами измерения нужно подключить декодер формата карт; пока значения не подменяются демонстрационными числами.", 12f, muted))
+        add(body, note)
+    }
+
+    private fun renderCalibrationList() {
+        val list = body.findViewWithTag<LinearLayout>("calibration_list") ?: return
+        list.removeAllViews()
+        val entries = descriptorStrings()
+            .distinctBy { it.second.lowercase() }
+            .filter { it.second.contains(calibrationSearch, ignoreCase = true) }
+        add(list, text("Найдено фрагментов: ${entries.size}", 11f, muted))
+        gap(list, 5)
+        if (entries.isEmpty()) {
+            add(list, card().apply { add(this, text("Совпадений нет. Попробуй изменить запрос.", 13f, muted)) })
+            return
+        }
+        entries.take(300).forEach { entry ->
+            val item = card()
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val title = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            add(title, text(entry.second, 14f, fg, true))
+            add(title, text("Смещение в .j7: 0x%X".format(entry.first), 10f, muted))
+            row.addView(title)
+            row.addView(text("›", 25f, accent, true))
+            item.addView(row)
+            item.setOnClickListener { selectedCalibration = entry; render() }
+            gap(list, 6)
+            add(list, item)
+        }
+        if (entries.size > 300) add(list, text("Показаны первые 300 результатов.", 11f, muted))
+    }
+
+    private fun calibrationDetail(entry: Pair<Int, String>) {
+        add(body, action("← Назад к списку") { selectedCalibration = null; render() })
+        gap(body)
+        add(body, text(entry.second, 21f, fg, true))
+        add(body, text("Описание .j7 • смещение 0x%X".format(entry.first), 12f, muted))
+        gap(body)
+        val summary = card()
+        add(summary, text("КАРТА КАЛИБРОВКИ", 11f, accent, true))
+        gap(summary, 6)
+        add(summary, text("Название успешно прочитано из файла описания.", 14f, fg, true))
+        add(summary, text("Адрес данных BIN, тип элементов, размеры таблицы, оси, масштаб и единицы измерения пока не определены декодером. Поэтому здесь не показываются выдуманные числа и не разрешается редактирование.", 13f, muted))
+        gap(summary, 10)
+        add(summary, action("Показать данные BIN рядом с описанием") {
+            showCalibrationBytes(entry.first)
+        })
+        add(body, summary)
+        gap(body)
+        val table = card()
+        add(table, text("ТАБЛИЦА ЗНАЧЕНИЙ", 11f, accent, true))
+        gap(table, 6)
+        add(table, text("Ожидает декодирования формата .j7", 16f, fg, true))
+        add(table, text("Следующий этап — связать дескриптор с реальными адресами и форматами данных прошивки. После этого здесь появятся таблица, редактирование ячеек и сохранение файла.", 13f, muted))
+        add(body, table)
+    }
+
+    private fun showCalibrationBytes(entryOffset: Int) {
+        val bytes = descriptorBytes ?: return
+        val from = (entryOffset - 16).coerceAtLeast(0)
+        val to = (entryOffset + 96).coerceAtMost(bytes.size)
+        val dump = StringBuilder()
+        var i = from
+        while (i < to) {
+            dump.append("%08X  ".format(i))
+            val end = min(i + 16, to)
+            for (j in i until end) dump.append("%02X ".format(bytes[j].toInt() and 255))
+            dump.append('\n')
+            i = end
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Фрагмент .j7")
+            .setMessage("Это байты файла описания, не значения карты BIN.\n\n" + dump.toString())
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun descriptorStrings(): List<Pair<Int, String>> {
+        val bytes = descriptorBytes ?: return emptyList()
+        val cp1251 = java.nio.charset.Charset.forName("windows-1251")
+        val found = mutableListOf<Pair<Int, String>>()
+        var start = -1
+        val current = java.io.ByteArrayOutputStream()
+        fun flush() {
+            if (current.size() >= 4) {
+                val decoded = String(current.toByteArray(), cp1251).trim()
+                if (decoded.length >= 4 && decoded.any { it.isLetter() }) found.add(start to decoded)
+            }
+            current.reset()
+            start = -1
+        }
+        for (i in bytes.indices) {
+            val b = bytes[i].toInt() and 255
+            if (b in 32..126 || b in 0xC0..0xFF || b in 0xA8..0xB8) {
+                if (start < 0) start = i
+                current.write(b)
+            } else flush()
+        }
+        flush()
+        return found
     }
 
     private fun hexView() {
@@ -348,44 +484,22 @@ class MainActivity : Activity() {
 
     private fun showDescriptorAnalysis() {
         val bytes = descriptorBytes ?: return
-        // Decode Russian text fragments using Windows-1251 instead of treating bytes as Unicode.
-        val cp1251 = java.nio.charset.Charset.forName("windows-1251")
-        val found = mutableListOf<Pair<Int, String>>()
-        var start = -1
-        val current = java.io.ByteArrayOutputStream()
-        fun flush() {
-            if (current.size() >= 4) {
-                val decoded = String(current.toByteArray(), cp1251).trim()
-                if (decoded.length >= 4 && decoded.any { it.isLetter() }) {
-                    found.add(start to decoded)
-                }
-            }
-            current.reset()
-            start = -1
-        }
-        for (i in bytes.indices) {
-            val b = bytes[i].toInt() and 255
-            if (b in 32..126 || b in 0xC0..0xFF || b in 0xA8..0xB8) {
-                if (start < 0) start = i
-                current.write(b)
-            } else {
-                flush()
-            }
-        }
-        flush()
+        val found = descriptorStrings()
         val report = StringBuilder()
         val magic = if (bytes.size >= 3) String(bytes, 0, 3, Charsets.US_ASCII) else "?"
-        report.append("Файл: " + descriptorName + "\nРазмер: " + bytes.size + " байт\nФормат: " + magic + "\nSHA-256: " + sha256(bytes) + "\n")
-        report.append("Текстовые фрагменты (Windows-1251): " + found.size + "\n\n")
+        report.append("Файл: " + descriptorName + "\\nРазмер: " + bytes.size + " байт\\nФормат: " + magic + "\\nSHA-256: " + sha256(bytes) + "\\n")
+        report.append("Текстовые фрагменты (Windows-1251): " + found.size + "\\n\\n")
         found.take(150).forEach { (offset, value) ->
             report.append("0x%08X  ".format(offset))
             report.append(value)
-            report.append('\n')
+            report.append('\\n')
         }
         if (found.isEmpty()) report.append("Читаемые строки не найдены.")
-        if (found.size > 150) report.append("\n… показаны первые 150 фрагментов.")
-        report.append("\n\nВажно: это исправляет отображение русских строк, но ещё не декодирует карты калибровок, адреса, оси и коэффициенты.")
-        AlertDialog.Builder(this).setTitle("Анализ .j7").setMessage(report.toString()).setPositiveButton("OK", null).show()
+        if (found.size > 150) report.append("\\n… показаны первые 150 фрагментов.")
+        report.append("\\n\\nНазвания доступны во вкладке «Калибровки». Значения таблиц пока не декодируются.")
+        AlertDialog.Builder(this).setTitle("Анализ .j7").setMessage(report.toString())
+            .setPositiveButton("Открыть калибровки") { _, _ -> tab = "Калибровки"; selectedCalibration = null; render() }
+            .setNegativeButton("Закрыть", null).show()
     }
 
     private fun sha256(bytes: ByteArray): String =
