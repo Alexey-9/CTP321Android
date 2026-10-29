@@ -213,7 +213,16 @@ class MainActivity : Activity() {
         val markers = decodeJ7Markers()
         val markerCard = card()
         add(markerCard, text("МЕТКИ ДЕСКРИПТОРА", 11f, accent, true))
-        add(markerCard, text(if (markers.isEmpty()) "Метки адресов не найдены." else markers.take(60).joinToString("\n") { it.label }, 11f, muted))
+        add(markerCard, text("Найдено меток: ${markers.size}. Адреса ниже — кандидаты, а не подтверждённые карты.", 12f, muted))
+        gap(markerCard, 6)
+        if (markers.isEmpty()) {
+            add(markerCard, text("Метки адресов не найдены.", 11f, muted))
+        } else {
+            markers.take(80).forEach { marker ->
+                add(markerCard, action("${marker.label}   →   0x%04X".format(marker.address)) { showBinCandidate(marker) })
+                gap(markerCard, 4)
+            }
+        }
         add(body, markerCard)
         gap(body)
         val search = EditText(this).apply {
@@ -322,6 +331,36 @@ class MainActivity : Activity() {
             val length = match.groupValues[3].takeIf { it.isNotBlank() }?.toIntOrNull(16)
             J7MapMarker(match.value, address, length)
         }.distinctBy { it.label }.toList()
+    }
+
+
+    private fun showBinCandidate(marker: J7MapMarker) {
+        val bytes = firmwareBytes
+        if (bytes == null) {
+            AlertDialog.Builder(this).setTitle("Сначала открой BIN")
+                .setMessage("Метка ${marker.label}, адрес-кандидат 0x%04X.".format(marker.address))
+                .setPositiveButton("Открыть BIN") { _, _ -> openFile(OPEN_FIRMWARE) }
+                .setNegativeButton("Отмена", null).show()
+            return
+        }
+        if (marker.address !in bytes.indices) {
+            AlertDialog.Builder(this).setTitle("Адрес вне BIN")
+                .setMessage("Адрес 0x%04X, размер файла 0x%X. Возможно, адрес в .j7 не является прямым файловым смещением.".format(marker.address, bytes.size))
+                .setPositiveButton("OK", null).show()
+            return
+        }
+        val end = min(marker.address + 256, bytes.size)
+        val dump = StringBuilder()
+        var i = marker.address
+        while (i < end) {
+            dump.append("%08X  ".format(i))
+            for (j in i until min(i + 16, end)) dump.append("%02X ".format(bytes[j].toInt() and 255))
+            dump.append('\\n')
+            i += 16
+        }
+        AlertDialog.Builder(this).setTitle("BIN: адрес-кандидат")
+            .setMessage("Метка ${marker.label}\nФайл: ${firmwareName}\n\n".format(marker.address) + dump.toString() + "\nHEX-дамп не является декодированной картой.")
+            .setPositiveButton("OK", null).show()
     }
 
     private fun showCalibrationBytes(entryOffset: Int) {
