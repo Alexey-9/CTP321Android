@@ -9,8 +9,8 @@ android {
         applicationId = "ru.ctplab.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "0.7.3"
+        versionCode = 12
+        versionName = "0.8.0"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
