@@ -45,7 +45,7 @@ class J7DraftTests(unittest.TestCase):
         spec = SPEC.read_text(encoding="utf-8")
         self.assertIn("UNKNOWN", spec)
         self.assertIn("Not established", spec)
-        self.assertIn("must NOT", spec.lower() if False else spec)
+        self.assertIn("MUST NOT", spec)
 
     def test_manifest_entries_have_valid_metadata(self):
         self.assertGreaterEqual(len(self.manifest["candidates"]), 5)
