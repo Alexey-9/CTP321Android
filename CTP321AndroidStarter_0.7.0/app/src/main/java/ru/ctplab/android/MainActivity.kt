@@ -348,7 +348,7 @@ class MainActivity : Activity() {
 
     private fun showDescriptorAnalysis() {
         val bytes = descriptorBytes ?: return
-        // CTP321/J7 descriptor text is stored in Windows-1251, not as one-byte Unicode chars.
+        // Decode Russian text fragments using Windows-1251 instead of treating bytes as Unicode.
         val cp1251 = java.nio.charset.Charset.forName("windows-1251")
         val found = mutableListOf<Pair<Int, String>>()
         var start = -1
@@ -365,7 +365,6 @@ class MainActivity : Activity() {
         }
         for (i in bytes.indices) {
             val b = bytes[i].toInt() and 255
-            // Keep printable ASCII and bytes used by Windows-1251; split on controls/NUL.
             if (b in 32..126 || b in 0xC0..0xFF || b in 0xA8..0xB8) {
                 if (start < 0) start = i
                 current.write(b)
@@ -376,16 +375,16 @@ class MainActivity : Activity() {
         flush()
         val report = StringBuilder()
         val magic = if (bytes.size >= 3) String(bytes, 0, 3, Charsets.US_ASCII) else "?"
-        report.append("Файл: " + descriptorName + "\\nРазмер: " + bytes.size + " байт\\nФормат: " + magic + "\\nSHA-256: " + sha256(bytes) + "\\n")
-        report.append("Текстовые фрагменты (Windows-1251): " + found.size + "\\n\\n")
+        report.append("Файл: " + descriptorName + "\nРазмер: " + bytes.size + " байт\nФормат: " + magic + "\nSHA-256: " + sha256(bytes) + "\n")
+        report.append("Текстовые фрагменты (Windows-1251): " + found.size + "\n\n")
         found.take(150).forEach { (offset, value) ->
             report.append("0x%08X  ".format(offset))
             report.append(value)
-            report.append('\\n')
+            report.append('\n')
         }
         if (found.isEmpty()) report.append("Читаемые строки не найдены.")
-        if (found.size > 150) report.append("\\n… показаны первые 150 фрагментов.")
-        report.append("\\n\\nВажно: это исправляет отображение русских строк, но ещё не декодирует карты калибровок, адреса, оси и коэффициенты.")
+        if (found.size > 150) report.append("\n… показаны первые 150 фрагментов.")
+        report.append("\n\nВажно: это исправляет отображение русских строк, но ещё не декодирует карты калибровок, адреса, оси и коэффициенты.")
         AlertDialog.Builder(this).setTitle("Анализ .j7").setMessage(report.toString()).setPositiveButton("OK", null).show()
     }
 
