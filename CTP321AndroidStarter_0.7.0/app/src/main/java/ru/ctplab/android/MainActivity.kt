@@ -225,6 +225,31 @@ class MainActivity : Activity() {
         }
         add(body, markerCard)
         gap(body)
+
+        val referenceCard = card()
+        add(referenceCard, text("СПРАВОЧНЫЕ КАРТЫ J7ES", 11f, accent, true))
+        add(referenceCard, text("Адреса взяты из открытого проекта cmgt/j7es (j7es_data_area.asm). Это справочник для сравнения, а не подтверждённые адреса твоего BIN: версии прошивки могут отличаться.", 12f, muted))
+        gap(referenceCard, 6)
+        val references = listOf(
+            Triple(0x6953, "Состав смеси от оборотов и дросселя", "AFR • обороты × положение дросселя"),
+            Triple(0x6AC8, "УОЗ от давления", "Угол зажигания • обороты × абсолютное давление"),
+            Triple(0x7CF7, "Поправка циклового наполнения", "Коэффициент • обороты × положение дросселя"),
+            Triple(0x8193, "Весовая коррекция топливоподачи", "Коэффициент • обороты × положение дросселя"),
+            Triple(0x83BA, "Состав смеси от оборотов и давления", "AFR • обороты × абсолютное давление")
+        )
+        references.forEach { (address, name, detail) ->
+            add(referenceCard, action("$name  •  0x%04X".format(address)) {
+                AlertDialog.Builder(this)
+                    .setTitle("Справочная карта")
+                    .setMessage("$name\\nАдрес в открытом ASM: 0x%04X\\n$detail\\n\\nЭтот адрес нельзя автоматически применять к открытому BIN без проверки версии и смещения.".format(address))
+                    .setPositiveButton("Понятно", null)
+                    .show()
+            })
+            gap(referenceCard, 4)
+        }
+        add(body, referenceCard)
+        gap(body)
+
         val search = EditText(this).apply {
             setSingleLine(true)
             hint = "Поиск по названиям калибровок"
