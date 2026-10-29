@@ -26,6 +26,8 @@ class MainActivity : Activity() {
     private var firmwareBytes: ByteArray? = null
     private var compareName = ""
     private var compareBytes: ByteArray? = null
+    private var descriptorName = ""
+    private var descriptorBytes: ByteArray? = null
     private lateinit var body: LinearLayout
     private lateinit var status: TextView
 
@@ -33,6 +35,7 @@ class MainActivity : Activity() {
         private const val OPEN_FIRMWARE = 101
         private const val OPEN_COMPARE = 102
         private const val SAVE_COPY = 103
+        private const val OPEN_DESCRIPTOR = 104
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -191,7 +194,15 @@ class MainActivity : Activity() {
         gap(c, 8)
         add(c, text(if (firmwareBytes == null) "Сначала открой файл прошивки." else "Загружено ${firmwareBytes!!.size} байт. Декодер карт не подключён.", 12f, accent))
         gap(c, 8)
-        add(c, action("Выбрать прошивку") { openFile(OPEN_FIRMWARE) })
+        add(c, action("Выбрать прошивку BIN") { openFile(OPEN_FIRMWARE) })
+        gap(c, 7)
+        add(c, action("Открыть описание карт .j7") { openFile(OPEN_DESCRIPTOR) })
+        if (descriptorBytes != null) {
+            gap(c, 8)
+            add(c, text("Описание: $descriptorName • ${descriptorBytes!!.size} байт", 12f, accent))
+            gap(c, 5)
+            add(c, action("Анализировать строки и смещения") { showDescriptorAnalysis() })
+        }
         add(body, c)
         gap(body)
         val warning = card()
@@ -316,6 +327,12 @@ class MainActivity : Activity() {
                     contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
                     Toast.makeText(this, "Копия сохранена", Toast.LENGTH_LONG).show()
                 }
+                OPEN_DESCRIPTOR -> {
+                    descriptorBytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    descriptorName = displayName(uri) ?: "calibrations.j7"
+                    render()
+                    showDescriptorAnalysis()
+                }
             }
         } catch (e: Exception) {
             Toast.makeText(this, "Ошибка файла: ${e.message ?: "неизвестная ошибка"}", Toast.LENGTH_LONG).show()
@@ -327,6 +344,40 @@ class MainActivity : Activity() {
             if (it.moveToFirst()) return it.getString(0)
         }
         return null
+    }
+
+    private fun showDescriptorAnalysis() {
+        val bytes = descriptorBytes ?: return
+        val found = mutableListOf<Pair<Int, String>>()
+        var start = -1
+        val current = StringBuilder()
+        fun flush() {
+            if (current.length >= 4) found.add(start to current.toString())
+            current.setLength(0)
+            start = -1
+        }
+        for (i in bytes.indices) {
+            val b = bytes[i].toInt() and 255
+            if (b in 32..126 || b in 0xC0..0xFF) {
+                if (start < 0) start = i
+                current.append(b.toChar())
+            } else {
+                flush()
+            }
+        }
+        flush()
+        val report = StringBuilder()
+        report.append("Файл: $descriptorName\nРазмер: \${bytes.size} байт\nSHA-256: \${sha256(bytes)}\n")
+        report.append("Найдено текстовых фрагментов (от 4 символов): \${found.size}\n\n")
+        found.take(150).forEach { (offset, value) ->
+            report.append("0x%08X  ".format(offset))
+            report.append(value)
+            report.append(10.toChar())
+        }
+        if (found.isEmpty()) report.append("Печатные строки не найдены. Возможно, файл бинарный или использует другую кодировку.")
+        if (found.size > 150) report.append("\n… показаны первые 150 фрагментов.")
+        report.append("\n\nЭто диагностический просмотр строк, а не декодирование таблиц. Адреса, оси, типы и коэффициенты карт пока не определяются.")
+        AlertDialog.Builder(this).setTitle("Анализ .j7").setMessage(report.toString()).setPositiveButton("OK", null).show()
     }
 
     private fun sha256(bytes: ByteArray): String =
