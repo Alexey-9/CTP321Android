@@ -355,7 +355,7 @@ class MainActivity : Activity() {
         while (i < end) {
             dump.append("%08X  ".format(i))
             for (j in i until min(i + 16, end)) dump.append("%02X ".format(bytes[j].toInt() and 255))
-            dump.append('\\n')
+            dump.append('\n')
             i += 16
         }
         AlertDialog.Builder(this).setTitle("BIN: адрес-кандидат")
