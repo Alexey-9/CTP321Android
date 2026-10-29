@@ -1296,13 +1296,35 @@ class MainActivity : Activity() {
         var different = 0
         var first = -1
         val limit = min(a.size, b.size)
+        val samples = ArrayList<String>()
+        var runStart = -1
+        var previous = -2
+        val ranges = ArrayList<Pair<Int, Int>>()
         for (i in 0 until limit) {
             if (a[i] != b[i]) {
                 different++
                 if (first < 0) first = i
+                if (samples.size < 100) samples.add("0x%04X: %02X → %02X".format(i, a[i].toInt() and 255, b[i].toInt() and 255))
+                if (runStart < 0) runStart = i
+                if (i != previous + 1 && previous >= 0) {
+                    if (runStart >= 0) ranges.add(Pair(runStart, previous))
+                    runStart = i
+                }
+                previous = i
+            } else if (runStart >= 0) {
+                ranges.add(Pair(runStart, previous))
+                runStart = -1
+                previous = -2
             }
         }
-        val message = "Файл A: ${a.size} байт\nФайл B: ${b.size} байт\nРазличий в общей части: $different\nПервое отличие: ${if (first < 0) "нет" else "0x%X".format(first)}\nРазница размера: ${a.size - b.size} байт\n\nПобайтовое сравнение, не сравнение карт калибровок."
+        if (runStart >= 0) ranges.add(Pair(runStart, previous))
+        val detail = if (samples.isEmpty()) "Совпадений нет: файлы одинаковы в общей части." else
+            "Первые отличающиеся байты (A → B):\n" + samples.joinToString("\n") +
+            (if (different > samples.size) "\n… ещё ${different - samples.size} отличий." else "")
+        val rangeText = ranges.take(30).joinToString("\n") { (start, end) ->
+            if (start == end) "0x%04X".format(start) else "0x%04X–0x%04X".format(start, end)
+        }
+        val message = "Файл A: ${a.size} байт\nФайл B: ${b.size} байт\nРазличий в общей части: $different\nПервое отличие: ${if (first < 0) "нет" else "0x%X".format(first)}\nРазница размера: ${a.size - b.size} байт\n\nУчастки отличий:\n${rangeText.ifBlank { "нет" }}\n\n$detail\n\nПобайтовое сравнение, не сравнение карт калибровок."
         AlertDialog.Builder(this).setTitle("Результат сравнения").setMessage(message)
             .setPositiveButton("OK", null).show()
     }
