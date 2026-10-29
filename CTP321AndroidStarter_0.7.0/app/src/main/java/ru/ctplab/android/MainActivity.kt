@@ -536,19 +536,19 @@ class MainActivity : Activity() {
             }
         }
         val report = buildString {
-            append("Файл: ").append(firmwareName).append("\\n")
-            append("Размер: ").append(bytes.size).append(" байт (0x").append("%X".format(bytes.size)).append(")\\n")
-            append("Нулевые байты: ").append(zeroCount).append(" (").append("%.1f".format(zeroCount * 100.0 / bytes.size)).append("%)\\n")
-            append("Байты FF: ").append(ffCount).append(" (").append("%.1f".format(ffCount * 100.0 / bytes.size)).append("%)\\n")
-            append("Остальные: ").append(otherCount).append(" (").append("%.1f".format(otherCount * 100.0 / bytes.size)).append("%)\\n\\n")
-            append("Длинные заполненные области (от 32 байт):\\n")
+            append("Файл: ").append(firmwareName).append("\n")
+            append("Размер: ").append(bytes.size).append(" байт (0x").append("%X".format(bytes.size)).append(")\n")
+            append("Нулевые байты: ").append(zeroCount).append(" (").append("%.1f".format(zeroCount * 100.0 / bytes.size)).append("%)\n")
+            append("Байты FF: ").append(ffCount).append(" (").append("%.1f".format(ffCount * 100.0 / bytes.size)).append("%)\n")
+            append("Остальные: ").append(otherCount).append(" (").append("%.1f".format(otherCount * 100.0 / bytes.size)).append("%)\n\n")
+            append("Длинные заполненные области (от 32 байт):\n")
             if (runs.isEmpty()) append("Не найдены.") else runs.take(30).forEach { (start, length) ->
                 append("0x").append("%04X".format(start)).append("–0x").append("%04X".format(start + length - 1))
                     .append("  ").append(length).append(" байт  ")
-                    .append(if ((bytes[start].toInt() and 0xFF) == 0) "00" else "FF").append("\\n")
+                    .append(if ((bytes[start].toInt() and 0xFF) == 0) "00" else "FF").append("\n")
             }
-            if (runs.size > 30) append("… и ещё ").append(runs.size - 30).append(" областей.\\n")
-            append("\\nВажно: пустые области не доказывают, что файл сжат или что карта находится по конкретному адресу.")
+            if (runs.size > 30) append("… и ещё ").append(runs.size - 30).append(" областей.\n")
+            append("\nВажно: пустые области не доказывают, что файл сжат или что карта находится по конкретному адресу.")
         }
         AlertDialog.Builder(this)
             .setTitle("Структура BIN")
