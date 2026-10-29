@@ -200,14 +200,25 @@ class MainActivity : Activity() {
         add(quickMaps, text("БЫСТРЫЙ ПРОСМОТР КАРТ-КАНДИДАТОВ", 11f, accent, true))
         add(quickMaps, text(if (firmwareForMaps == null) "Открой BIN, чтобы посмотреть байты по справочным адресам." else "Загружен $firmwareName • ${firmwareForMaps.size} байт. Просмотр ниже диагностический, не готовые значения калибровок.", 12f, muted))
         gap(quickMaps, 4)
-        listOf(
-            Triple(0x6953, "Смесь: обороты × дроссель", "Ось X/Y и формат значения ещё требуют подтверждения"),
-            Triple(0x6AC8, "УОЗ: обороты × давление", "В ASM единицы указаны как градусы ПКВ и давление кПа×10"),
-            Triple(0x83BA, "Смесь: обороты × давление", "В ASM единицы оси давления указаны как кПа×10"),
-            Triple(0x8F4A, "Коэффициент топливной плёнки", "Температурная зависимость")
-        ).forEach { item ->
-            add(quickMaps, action("${item.second} • ASM 0x%04X".format(item.first)) {
-                showReferenceMapCandidate(item.first, item.second, item.third)
+        add(quickMaps, text("ПРЯМОЕ СОПОСТАВЛЕНИЕ С J7ES ASM", 11f, accent, true))
+        add(quickMaps, text("Открываются участки по подтверждённым адресам ASM. Для одномерных карт показаны сырые байты; для 16×16 — форма предварительная, пока не декодированы оси. Значения не пересчитываются в AFR/градусы без формулы.", 12f, muted))
+        gap(quickMaps, 4)
+        val knownMaps = listOf(
+            arrayOf("0x6953", "Смесь: обороты × дроссель", "16", "16"),
+            arrayOf("0x6A53", "Базовый состав смеси", "39", "1"),
+            arrayOf("0x6A7A", "Коррекция базового состава", "39", "1"),
+            arrayOf("0x6AC8", "УОЗ: обороты × давление", "16", "16"),
+            arrayOf("0x7CF7", "Поправка циклового наполнения", "16", "16"),
+            arrayOf("0x8193", "Весовая коррекция топливоподачи (FF)", "16", "16"),
+            arrayOf("0x83BA", "Смесь: обороты × давление", "16", "16"),
+            arrayOf("0x8F4A", "Коэффициент топливной плёнки", "39", "1")
+        )
+        knownMaps.forEach { m ->
+            val addr = m[0].removePrefix("0x").toInt(16)
+            val rows = m[2].toInt()
+            val cols = m[3].toInt()
+            add(quickMaps, action("${m[1]} • ${m[0]}") {
+                openKnownMap(addr, m[1], rows, cols)
             })
             gap(quickMaps, 4)
         }
@@ -505,6 +516,38 @@ class MainActivity : Activity() {
      * Diagnostic preview only: public J7ES ASM addresses are not yet proven to be
      * direct offsets in every BIN variant. Never use this preview for editing/flashing.
      */
+    /**
+     * Opens a known J7ES ASM region as a raw-byte view. The region start is grounded
+     * in the public data-area listing; dimensions are explicitly marked provisional
+     * where the descriptor axes have not been decoded. Never converts raw values.
+     */
+    private fun openKnownMap(address: Int, name: String, rows: Int, cols: Int) {
+        val bytes = firmwareBytes
+        if (bytes == null) {
+            AlertDialog.Builder(this).setTitle("Сначала открой BIN")
+                .setMessage("Калибровка: $name\\nСправочный адрес ASM: 0x%04X".format(address))
+                .setPositiveButton("Открыть BIN") { _, _ -> openFile(OPEN_FIRMWARE) }
+                .setNegativeButton("Отмена", null).show()
+            return
+        }
+        val count = rows * cols
+        if (address < 0 || address.toLong() + count > bytes.size) {
+            AlertDialog.Builder(this).setTitle("Область за пределами BIN")
+                .setMessage("Карта $name\\nАдрес 0x%04X, длина $count байт; размер BIN ${bytes.size} байт. Изменения не внесены.".format(address))
+                .setPositiveButton("OK", null).show()
+            return
+        }
+        val note = if (address == 0x8193) {
+            "В исходнике J7ES эта область заполнена 0xFF. Вероятно, таблица не настроена/не используется. Редактировать её без проверки прошивки не рекомендуется."
+        } else {
+            "Адрес начала сверен с открытым j7es_data_area.asm. Показаны исходные байты BIN. Оси, точные размерности и пересчёт физических единиц не подтверждены."
+        }
+        AlertDialog.Builder(this).setTitle(name)
+            .setMessage("ASM/BIN-кандидат: 0x%04X\\nРазмер просмотра: %d×%d = %d байт\\n\\n%s".format(address, rows, cols, count, note))
+            .setPositiveButton("Открыть значения") { _, _ -> showRawTable(name, address, rows, cols, 1) }
+            .setNegativeButton("Закрыть", null).show()
+    }
+
     private fun showReferenceMapCandidate(address: Int, name: String, detail: String) {
         val bytes = firmwareBytes
         if (bytes == null) {
