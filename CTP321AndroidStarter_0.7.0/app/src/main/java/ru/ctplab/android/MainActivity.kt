@@ -115,7 +115,7 @@ class MainActivity : Activity() {
         header.addView(action(if (firmwareBytes == null) "＋  BIN" else "▣  BIN открыт") { openFile(OPEN_FIRMWARE) })
         root.addView(header)
         gap(root, 10)
-        status = text("Январь 7.2 / J7ES  •  Прошивка не выбрана", 12f, muted)
+        status = text(if (firmwareBytes == null) "Январь 7.2 / J7ES  •  BIN не выбран" else "Январь 7.2 / J7ES  •  ${firmwareBytes!!.size} байт загружено", 12f, muted)
         add(root, status)
         gap(root, 8)
         val tabScroll = HorizontalScrollView(this).apply {
@@ -155,7 +155,30 @@ class MainActivity : Activity() {
         }
         scroll.addView(body)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(text("CTP Mobile Lab 0.8.5  •  локальная работа с файлами", 10f, muted).apply { gravity = Gravity.CENTER })
+        val bottomNav = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(5), 0, dp(2))
+            setBackgroundColor(0xFF0C171D.toInt())
+        }
+        listOf("Обзор" to "⌂", "Калибровки" to "▦", "Редактор" to "▤", "HEX" to "⌗", "Инструменты" to "⚙").forEach { (name, glyph) ->
+            val selected = tab == name
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(3), dp(5), dp(3), dp(5))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(if (selected) 0xFF17352F.toInt() else android.graphics.Color.TRANSPARENT)
+                    cornerRadius = dp(10).toFloat()
+                }
+                setOnClickListener { tab = name; render(); buildShell() }
+            }
+            add(item, text(glyph, 18f, if (selected) accent else muted, true).apply { gravity = Gravity.CENTER })
+            add(item, text(name, 9f, if (selected) accent else muted, selected).apply { gravity = Gravity.CENTER })
+            bottomNav.addView(item, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        root.addView(bottomNav)
+        root.addView(text("CTP Mobile Lab 0.8.6 • локальная работа с файлами", 9f, muted).apply { gravity = Gravity.CENTER })
         setContentView(root)
         render()
     }
@@ -299,13 +322,14 @@ class MainActivity : Activity() {
             intArrayOf(0xFF0D2C48.toInt(), 0xFF071827.toInt())
         ).apply { cornerRadius = dp(18).toFloat(); setStroke(dp(1), 0xFF17496B.toInt()) }
         add(hero, text("CTP321", 28f, fg, true))
-        add(hero, text("Редактор калибровок", 14f, accent, true))
+        add(hero, text("МОБИЛЬНАЯ ЛАБОРАТОРИЯ", 11f, accent, true))
+        add(hero, text("Настройка ЭБУ Январь 7.2 / J7ES", 15f, fg, true))
         gap(hero, 8)
         add(hero, text("Январь 7.2  /  J7ES", 12f, muted))
         add(body, hero)
         gap(body)
         val f = card()
-        add(f, text("ТЕКУЩИЙ ФАЙЛ", 11f, accent, true))
+        add(f, text("ФАЙЛ ПРОШИВКИ  /  BIN", 11f, accent, true))
         gap(f, 6)
         add(f, text(if (firmwareBytes == null) "Прошивка не открыта" else firmwareName, 16f, fg, true))
         val bytes = firmwareBytes
@@ -321,7 +345,7 @@ class MainActivity : Activity() {
         add(body, f)
         gap(body)
         val q = card()
-        add(q, text("БЫСТРЫЙ ДОСТУП", 11f, accent, true))
+        add(q, text("РАБОЧИЕ РАЗДЕЛЫ", 11f, accent, true))
         gap(q, 8)
         add(q, action("▦   Калибровки                                      ›") { tab = "Калибровки"; render() })
         gap(q, 7)
