@@ -241,7 +241,7 @@ class MainActivity : Activity() {
             add(referenceCard, action("$name  •  0x%04X".format(address)) {
                 AlertDialog.Builder(this)
                     .setTitle("Справочная карта")
-                    .setMessage("$name\\nАдрес в открытом ASM: 0x%04X\\n$detail\\n\\nЭтот адрес нельзя автоматически применять к открытому BIN без проверки версии и смещения.".format(address))
+                    .setMessage("$name\nАдрес в открытом ASM: 0x%04X\n$detail\n\nЭтот адрес нельзя автоматически применять к открытому BIN без проверки версии и смещения.".format(address))
                     .setPositiveButton("Понятно", null)
                     .show()
             })
