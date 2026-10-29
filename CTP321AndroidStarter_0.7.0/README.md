@@ -1,4 +1,4 @@
-# CTP Mobile Lab 0.8.2
+# CTP Mobile Lab 0.8.3
 
 Android prototype for local Январь 7.2 / J7ES firmware inspection.
 
@@ -11,6 +11,7 @@ Android prototype for local Январь 7.2 / J7ES firmware inspection.
 - Edit one byte by hexadecimal file offset and save an edited copy
 - Inspect J7 descriptor address-marker candidates and view the corresponding BIN HEX region
 - Browse a clearly labelled reference catalog of J7ES calibration addresses from the public `cmgt/j7es` disassembly
+- Analyze BIN byte statistics and long zero/FF-filled regions as a structural diagnostic
 
 ## Important limitations
 - .j7 names are currently extracted as text fragments; this is not a validated calibration-table parser.
