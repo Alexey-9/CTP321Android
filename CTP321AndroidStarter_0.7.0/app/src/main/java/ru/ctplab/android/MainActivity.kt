@@ -783,7 +783,7 @@ class MainActivity : Activity() {
             .setPositiveButton("OK", null).show()
     }
 
-    private data class J7MapMarker(val label: String, val address: Int, val lengthCandidate: Int?)
+    private data class J7MapMarker(val label: String, val address: Int, val lengthCandidate: Int?, val descriptorOffset: Int)
 
     private fun decodeJ7Markers(): List<J7MapMarker> {
         val bytes = descriptorBytes ?: return emptyList()
@@ -792,7 +792,7 @@ class MainActivity : Activity() {
         return pattern.findAll(source).mapNotNull { match ->
             val address = match.groupValues[2].toIntOrNull(16) ?: return@mapNotNull null
             val length = match.groupValues[3].takeIf { it.isNotBlank() }?.toIntOrNull(16)
-            J7MapMarker(match.value, address, length)
+            J7MapMarker(match.value, address, length, match.range.first)
         }.distinctBy { it.label }.toList()
     }
 
@@ -1152,10 +1152,10 @@ class MainActivity : Activity() {
         val candidates = found.filter { (_, value) -> calibrationTerms.any { value.contains(it, ignoreCase = true) } }
         report.append("Строки, похожие на названия/оси калибровок: ${candidates.size}\n")
         candidates.take(100).forEach { (offset, value) ->
-            val nearby = markers.minByOrNull { kotlin.math.abs(it.address - offset) }
+            val nearby = markers.minByOrNull { kotlin.math.abs(it.descriptorOffset - offset) }
             report.append("• 0x%08X  ".format(offset))
             report.append(value)
-            if (nearby != null) report.append("  [ближайшая метка ${nearby.label}; связь не подтверждена]")
+            if (nearby != null) report.append("  [ближайшая метка по позиции .j7: ${nearby.label}; файловая позиция записи 0x%X; связь требует проверки]".format(nearby.descriptorOffset))
             report.append('\n')
         }
         report.append("\nПОЛНЫЙ СПИСОК СТРОК\n")
