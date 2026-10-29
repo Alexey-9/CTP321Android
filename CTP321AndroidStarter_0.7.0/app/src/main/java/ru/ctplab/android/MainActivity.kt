@@ -15,12 +15,12 @@ import java.security.MessageDigest
 import kotlin.math.min
 
 class MainActivity : Activity() {
-    private val bg = 0xFF17191D.toInt()
-    private val panel = 0xFF22252B.toInt()
-    private val panel2 = 0xFF2B3038.toInt()
-    private val accent = 0xFF65C8A4.toInt()
-    private val fg = 0xFFE7EAF0.toInt()
-    private val muted = 0xFF9AA3B2.toInt()
+    private val bg = 0xFF061321.toInt()
+    private val panel = 0xFF0D2033.toInt()
+    private val panel2 = 0xFF102A42.toInt()
+    private val accent = 0xFF25B5FF.toInt()
+    private val fg = 0xFFE6F3FF.toInt()
+    private val muted = 0xFF91ABC2.toInt()
     private var tab = "Обзор"
     private var firmwareName = "Файл не открыт"
     private var firmwareBytes: ByteArray? = null
@@ -107,8 +107,8 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        add(branding, text("CTP  /  MOBILE LAB", 11f, accent, true))
-        add(branding, text("Инженерная среда ЭБУ", 18f, fg, true))
+        add(branding, text("CTP321", 25f, fg, true))
+        add(branding, text("РЕДАКТОР КАЛИБРОВОК  •  J7ES", 10f, accent, true))
         header.addView(branding)
         header.addView(action("Открыть BIN") { openFile(OPEN_FIRMWARE) })
         root.addView(header)
@@ -123,6 +123,7 @@ class MainActivity : Activity() {
                 textSize = 11.5f
                 gravity = Gravity.CENTER
                 setPadding(dp(5), dp(12), dp(5), dp(12))
+                background = android.graphics.drawable.GradientDrawable().apply { setColor(if (tab == name) 0xFF123D5C.toInt() else android.graphics.Color.TRANSPARENT); cornerRadius = dp(10).toFloat() }
                 setTextColor(if (tab == name) accent else muted)
                 setTypeface(typeface, if (tab == name) Typeface.BOLD else Typeface.NORMAL)
                 setOnClickListener { tab = name; render() }
@@ -264,38 +265,48 @@ class MainActivity : Activity() {
     }
 
     private fun overview() {
-        add(body, text("Рабочее пространство", 22f, fg, true))
-        add(body, text("Прошивки и калибровочные данные в одном месте.", 13f, muted))
+        val hero = card()
+        hero.background = android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+            intArrayOf(0xFF0D2C48.toInt(), 0xFF071827.toInt())
+        ).apply { cornerRadius = dp(18).toFloat(); setStroke(dp(1), 0xFF17496B.toInt()) }
+        add(hero, text("CTP321", 28f, fg, true))
+        add(hero, text("Редактор калибровок", 14f, accent, true))
+        gap(hero, 8)
+        add(hero, text("Январь 7.2  /  J7ES", 12f, muted))
+        add(body, hero)
         gap(body)
         val f = card()
-        add(f, text("ТЕКУЩАЯ ПРОШИВКА", 11f, accent, true))
-        gap(f, 5)
-        add(f, text(firmwareName, 16f, fg, true))
+        add(f, text("ТЕКУЩИЙ ФАЙЛ", 11f, accent, true))
+        gap(f, 6)
+        add(f, text(if (firmwareBytes == null) "Прошивка не открыта" else firmwareName, 16f, fg, true))
         val bytes = firmwareBytes
-        add(f, text(if (bytes == null) "Размер: —" else "Размер: ${bytes.size} байт  •  ${"%.2f".format(bytes.size / 1024.0)} KiB", 12f, muted))
-        add(f, text(if (bytes == null) "SHA-256: —" else "SHA-256: ${sha256(bytes)}", 10f, muted))
+        add(f, text(if (bytes == null) "Выбери BIN-файл для начала работы" else "Размер: ${bytes.size} байт  •  ${"%.2f".format(bytes.size / 1024.0)} KiB", 12f, muted))
+        if (bytes != null) {
+            gap(f, 5)
+            add(f, text("SHA-256: ${sha256(bytes)}", 9.5f, muted))
+        }
         gap(f, 10)
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row.addView(action("Открыть файл") { openFile(OPEN_FIRMWARE) }, LinearLayout.LayoutParams(0, -2, 1f))
-        row.addView(View(this), LinearLayout.LayoutParams(dp(8), 1))
-        row.addView(action("Сохранить копию") { saveCopy() }, LinearLayout.LayoutParams(0, -2, 1f))
-        f.addView(row)
+        add(f, action("▣   Открыть BIN") { openFile(OPEN_FIRMWARE) })
+        gap(f, 7)
+        add(f, action("↧   Сохранить копию") { saveCopy() })
         add(body, f)
         gap(body)
         val q = card()
         add(q, text("БЫСТРЫЙ ДОСТУП", 11f, accent, true))
+        gap(q, 8)
+        add(q, action("▦   Калибровки                                      ›") { tab = "Калибровки"; render() })
         gap(q, 7)
-        add(q, action("Сравнить с другой прошивкой") { openFile(OPEN_COMPARE) })
+        add(q, action("⌁   Редактор таблиц                               ›") { tab = "Редактор"; render() })
         gap(q, 7)
-        add(q, action("Перейти к HEX-просмотру") { tab = "HEX"; render() })
+        add(q, action("⌗   HEX-просмотр                                  ›") { tab = "HEX"; render() })
         gap(q, 7)
-        add(q, action("Область калибровок") { tab = "Калибровки"; render() })
-        add(body, q)
+        add(q, action("⇄   Сравнить прошивки                            ›") { openFile(OPEN_COMPARE) })
         gap(body)
         val note = card()
-        add(note, text("СОСТОЯНИЕ РЕДАКТОРА", 11f, accent, true))
-        gap(note, 4)
-        add(note, text("Открытие, копирование, SHA-256 и побайтовое сравнение доступны. Декодер карт Январь 7.2/J7ES ещё не реализован.", 13f, muted))
+        add(note, text("СТАТУС ПРОЕКТА", 11f, accent, true))
+        gap(note, 5)
+        add(note, text(if (bytes == null) "Готов к открытию BIN и описания карт J7." else "BIN загружен • ${bytes.size} байт • изменения сохраняются только в копию.", 12f, muted))
         add(body, note)
     }
 
