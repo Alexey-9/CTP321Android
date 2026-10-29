@@ -363,11 +363,11 @@ class MainActivity : Activity() {
         add(summary, text("Название успешно прочитано из файла описания.", 14f, fg, true))
         add(summary, text("Адрес данных BIN, тип элементов, размеры таблицы, оси, масштаб и единицы измерения пока не определены декодером. Поэтому здесь не показываются выдуманные числа и не разрешается редактирование.", 13f, muted))
         gap(summary, 10)
-        add(summary, action("Показать данные BIN рядом с описанием") {
+        add(summary, action("Показать байты записи в .j7") {
             showCalibrationBytes(entry.first)
         })
-        add(summary, action("Открыть редактор таблицы-кандидата") {
-            rawTableSetup(entry.second)
+        add(summary, action("Найти адресные метки рядом с записью") {
+            showMarkersNearDescriptorOffset(entry.first)
         })
         add(body, summary)
         gap(body)
@@ -638,6 +638,24 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("BIN: адрес-кандидат")
             .setMessage("Метка ${marker.label}\nФайл: ${firmwareName}\n\n".format(marker.address) + dump.toString() + "\nHEX-дамп не является декодированной картой.")
             .setPositiveButton("OK", null).show()
+    }
+
+    private fun showMarkersNearDescriptorOffset(entryOffset: Int) {
+        val bytes = descriptorBytes ?: return
+        val source = String(bytes, java.nio.charset.Charset.forName("windows-1251"))
+        val pattern = Regex("!([0-9]{3})-([0-9A-Fa-f]{4})(?:-([0-9A-Fa-f]{2}))?")
+        val matches = pattern.findAll(source).toList()
+        val nearby = matches.filter { kotlin.math.abs(it.range.first - entryOffset) <= 512 }
+        val report = if (nearby.isEmpty()) {
+            "В пределах 512 байт от строки с названием адресные метки не найдены.\n\nЭто не означает, что у калибровки нет адреса: структура .j7 ещё не декодирована полностью."
+        } else {
+            nearby.joinToString("\n") { m ->
+                val delta = m.range.first - entryOffset
+                "%s • смещение записи 0x%X • Δ %+d байт".format(m.value, m.range.first, delta)
+            } + "\n\nВажно: метка рядом с названием — только кандидат. Связь метки с конкретной таблицей пока не подтверждена."
+        }
+        AlertDialog.Builder(this).setTitle("Адресные метки рядом с названием")
+            .setMessage(report).setPositiveButton("OK", null).show()
     }
 
     private fun showCalibrationBytes(entryOffset: Int) {
