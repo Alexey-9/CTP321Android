@@ -1,4 +1,4 @@
-name: CTP Mobile Lab 0.8.2 Android build
+name: CTP Mobile Lab 0.8.3 Android build
 
 on:
   push:
