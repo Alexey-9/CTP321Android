@@ -501,12 +501,61 @@ class MainActivity : Activity() {
         add(h, text(if (firmwareBytes == null) "Открой файл, чтобы рассчитать SHA-256." else sha256(firmwareBytes!!), 10f, muted))
         add(body, h)
         gap(body)
+        val structure = card()
+        add(structure, text("АНАЛИЗ СТРУКТУРЫ BIN", 11f, accent, true))
+        add(structure, text("Поиск пустых областей и статистика байтов. Это помогает понять компоновку файла, но не определяет адреса калибровок автоматически.", 12f, muted))
+        gap(structure, 7)
+        add(structure, action("Анализировать открытый BIN") { analyzeFirmwareStructure() })
+        add(body, structure)
+        gap(body)
         val about = card()
         add(about, text("О программе", 14f, fg, true))
         add(about, text("CTP Mobile Lab 0.7.0\nAndroid • Январь 7.2 / J7ES\nЛокальное открытие, HEX-просмотр, SHA-256 и сравнение байтов.", 12f, muted))
         add(body, about)
     }
 
+    private fun analyzeFirmwareStructure() {
+        val bytes = firmwareBytes
+        if (bytes == null || bytes.isEmpty()) {
+            Toast.makeText(this, "Сначала открой BIN", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val zeroCount = bytes.count { (it.toInt() and 0xFF) == 0 }
+        val ffCount = bytes.count { (it.toInt() and 0xFF) == 0xFF }
+        val otherCount = bytes.size - zeroCount - ffCount
+        val runs = mutableListOf<Pair<Int, Int>>()
+        var i = 0
+        while (i < bytes.size) {
+            val value = bytes[i].toInt() and 0xFF
+            if (value == 0 || value == 0xFF) {
+                val start = i
+                while (i < bytes.size && (bytes[i].toInt() and 0xFF) == value) i++
+                if (i - start >= 32) runs.add(Pair(start, i - start))
+            } else {
+                i++
+            }
+        }
+        val report = buildString {
+            append("Файл: ").append(firmwareName).append("\\n")
+            append("Размер: ").append(bytes.size).append(" байт (0x").append("%X".format(bytes.size)).append(")\\n")
+            append("Нулевые байты: ").append(zeroCount).append(" (").append("%.1f".format(zeroCount * 100.0 / bytes.size)).append("%)\\n")
+            append("Байты FF: ").append(ffCount).append(" (").append("%.1f".format(ffCount * 100.0 / bytes.size)).append("%)\\n")
+            append("Остальные: ").append(otherCount).append(" (").append("%.1f".format(otherCount * 100.0 / bytes.size)).append("%)\\n\\n")
+            append("Длинные заполненные области (от 32 байт):\\n")
+            if (runs.isEmpty()) append("Не найдены.") else runs.take(30).forEach { (start, length) ->
+                append("0x").append("%04X".format(start)).append("–0x").append("%04X".format(start + length - 1))
+                    .append("  ").append(length).append(" байт  ")
+                    .append(if ((bytes[start].toInt() and 0xFF) == 0) "00" else "FF").append("\\n")
+            }
+            if (runs.size > 30) append("… и ещё ").append(runs.size - 30).append(" областей.\\n")
+            append("\\nВажно: пустые области не доказывают, что файл сжат или что карта находится по конкретному адресу.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Структура BIN")
+            .setMessage(report)
+            .setPositiveButton("Закрыть", null)
+            .show()
+    }
     private fun openFile(request: Int) {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
