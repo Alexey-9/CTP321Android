@@ -193,7 +193,7 @@ class MainActivity : Activity() {
             return
         }
         add(body, text("Калибровки", 22f, fg, true))
-        add(body, text("Список формируется из загруженного описания .j7 — без подставных названий и значений.", 13f, muted))
+        add(body, text("Декодер J7ES: названия, метки адресов и проверка связи с BIN. Неподтверждённые данные помечаются как кандидаты.", 13f, muted))
         gap(body)
         val fileCard = card()
         add(fileCard, text("ФАЙЛЫ КАЛИБРОВОК", 11f, accent, true))
@@ -209,6 +209,13 @@ class MainActivity : Activity() {
             add(body, c)
             return
         }
+
+        val markers = decodeJ7Markers()
+        val markerCard = card()
+        add(markerCard, text("МЕТКИ ДЕСКРИПТОРА", 11f, accent, true))
+        add(markerCard, text(if (markers.isEmpty()) "Метки адресов не найдены." else markers.take(60).joinToString("\n") { it.label }, 11f, muted))
+        add(body, markerCard)
+        gap(body)
         val search = EditText(this).apply {
             setSingleLine(true)
             hint = "Поиск по названиям калибровок"
@@ -301,6 +308,20 @@ class MainActivity : Activity() {
         add(table, text("Ожидает декодирования формата .j7", 16f, fg, true))
         add(table, text("Следующий этап — связать дескриптор с реальными адресами и форматами данных прошивки. После этого здесь появятся таблица, редактирование ячеек и сохранение файла.", 13f, muted))
         add(body, table)
+    }
+
+
+    private data class J7MapMarker(val label: String, val address: Int, val lengthCandidate: Int?)
+
+    private fun decodeJ7Markers(): List<J7MapMarker> {
+        val bytes = descriptorBytes ?: return emptyList()
+        val source = String(bytes, java.nio.charset.Charset.forName("windows-1251"))
+        val pattern = Regex("!([0-9]{3})-([0-9A-Fa-f]{4})(?:-([0-9A-Fa-f]{2}))?")
+        return pattern.findAll(source).mapNotNull { match ->
+            val address = match.groupValues[2].toIntOrNull(16) ?: return@mapNotNull null
+            val length = match.groupValues[3].takeIf { it.isNotBlank() }?.toIntOrNull(16)
+            J7MapMarker(match.value, address, length)
+        }.distinctBy { it.label }.toList()
     }
 
     private fun showCalibrationBytes(entryOffset: Int) {
