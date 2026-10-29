@@ -1,0 +1,26 @@
+{
+  "format": "J7 descriptor corpus metadata v1",
+  "note": "The archive descriptors below are exploratory candidates only. They are not confirmed compatible with the user's j7es_0.7.5 descriptor or firmware. Original proprietary binary files are intentionally not copied into this repository; hashes and byte-level observations allow local verification.",
+  "primary_fixture": {
+    "file": "j7es_0.7.5.j7",
+    "size": 186401,
+    "sha256": "61cb9c36c95e4d046b6d33edc4f6e0863c37e13ee9a8bf75464289313a65e04a",
+    "signature": "CTM",
+    "marker_count": 115,
+    "paired_firmware": {
+      "file": "72_1093_21116_j7esa_0_7_5_7281.bin",
+      "size": 65536,
+      "sha256": "ed0258bbbf8a83dabfd785260468825f9e7794419e79ed9602dab9c5b3052b7a"
+    }
+  },
+  "candidates": [
+    {"archive_path":"ctp321-full/I203EK34.j7","size":130977,"sha256":"6b6bbbe41cd1109c39bfc9fd8f0115d98840356f1effc4eb65c63880e84772be","signature":"CTM","marker_count":106,"status":"unpaired_candidate"},
+    {"archive_path":"ctp321-full/I203EK34_f.j7","size":130977,"sha256":"efa748d26d77e68a19e441870979b79d0548ffd39d46b37ee36b135e31eed6eb","signature":"CTM","marker_count":106,"status":"unpaired_candidate"},
+    {"archive_path":"ctp321-full/I204DM52.j7","size":132203,"sha256":"bf13844bbb344ce1b298bd98b55220217e688e984f37716c8a5d5aa49299f5a7","signature":"CTM","marker_count":106,"status":"unpaired_candidate"},
+    {"archive_path":"ctp321-full/I205DM53.j7","size":131534,"sha256":"a52654b2d544932265349583af29f1ef9efe5c8023c2787fb18da5b985d1adf2","signature":"CTM","marker_count":106,"status":"unpaired_candidate"},
+    {"archive_path":"ctp321-full/i203ek34_RCO.j7","size":131853,"sha256":"949d1c93c2711a2dc2927ebe04e825996f355c881414053f16c51b5409b806d4","signature":"CTM","marker_count":108,"status":"unpaired_candidate"},
+    {"archive_path":"ctp321-full/i204DM52_RCO.j7","size":133079,"sha256":"8a19dca192faaf11aedf4e2f7b97b6b7b2b0940ffb0ee01dfe9e291c43f90852","signature":"CTM","marker_count":108,"status":"unpaired_candidate"},
+    {"archive_path":"ctp321-full/i205DM53_RCO.j7","size":132410,"sha256":"95da806c51cd807a3c7c40f51c5591d808cc8c8f22a812f510e1616b259920e8","signature":"CTM","marker_count":108,"status":"unpaired_candidate"},
+    {"archive_path":"ctp321-full/spt0007.j7","size":99157,"sha256":"0491209b6af060c106bd9cc0f20e870e0d5efe38bfa436dec3c06dc4d43fd451","signature":"CTM","marker_count":66,"status":"unpaired_candidate"}
+  ]
+}
