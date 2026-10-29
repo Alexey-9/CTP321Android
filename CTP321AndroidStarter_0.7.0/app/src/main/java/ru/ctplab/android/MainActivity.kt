@@ -30,6 +30,8 @@ class MainActivity : Activity() {
     private var descriptorBytes: ByteArray? = null
     private var selectedCalibration: Pair<Int, String>? = null
     private var calibrationSearch = ""
+    private var editorMapAddress: Int? = null
+    private var editorMapName = ""
     private var firmwareDirty = false
     private lateinit var body: LinearLayout
     private lateinit var status: TextView
@@ -115,7 +117,7 @@ class MainActivity : Activity() {
         add(root, status)
         gap(root, 8)
         val tabs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf("Обзор", "Калибровки", "HEX", "Инструменты").forEach { name ->
+        listOf("Обзор", "Калибровки", "Редактор", "HEX", "Инструменты").forEach { name ->
             val item = TextView(this).apply {
                 text = name
                 textSize = 11.5f
@@ -145,9 +147,88 @@ class MainActivity : Activity() {
         when (tab) {
             "Обзор" -> overview()
             "Калибровки" -> calibrations()
+            "Редактор" -> calibrationEditor()
             "HEX" -> hexView()
             else -> toolsView()
         }
+    }
+
+
+    private fun calibrationEditor() {
+        val bytes = firmwareBytes
+        add(body, text("Редактор калибровок", 22f, fg, true))
+        add(body, text("Табличный интерфейс CTP Mobile Lab. Редактирование включается только для областей, чья сигнатура совпала с BIN.", 13f, muted))
+        gap(body)
+        if (bytes == null) {
+            val c = card()
+            add(c, text("Сначала открой BIN прошивки", 17f, fg, true))
+            add(c, action("Открыть BIN") { openFile(OPEN_FIRMWARE) })
+            add(body, c)
+            return
+        }
+        val maps = knownCalibrationCatalog().filter { it.address == 0x6A53 || it.address == 0x6A7A || it.address == 0x8F4A }
+        val listCard = card()
+        add(listCard, text("КАРТЫ С ПРОВЕРЯЕМОЙ СИГНАТУРОЙ", 11f, accent, true))
+        maps.forEach { map ->
+            val valid = map.address + map.bytesExpected <= bytes.size &&
+                map.signature.indices.all { (bytes[map.address + it].toInt() and 255) == map.signature[it] }
+            gap(listCard, 5)
+            add(listCard, action("${if (valid) "●" else "○"}  ${map.name}  •  0x%04X  •  %s".format(map.address, if (valid) "проверена" else "не совпала")) {
+                if (valid) {
+                    editorMapAddress = map.address
+                    editorMapName = map.name
+                    render()
+                } else {
+                    Toast.makeText(this, "Сигнатура не совпала — редактирование заблокировано.", Toast.LENGTH_LONG).show()
+                }
+            })
+        }
+        add(body, listCard)
+        val address = editorMapAddress ?: return
+        val map = maps.firstOrNull { it.address == address } ?: return
+        val valid = address + map.bytesExpected <= bytes.size &&
+            map.signature.indices.all { (bytes[address + it].toInt() and 255) == map.signature[it] }
+        if (!valid) {
+            editorMapAddress = null
+            return
+        }
+        gap(body)
+        val detail = card()
+        add(detail, text(editorMapName, 18f, fg, true))
+        add(detail, text("BIN 0x%04X • ${map.bytesExpected} байт • UINT8 • исходные значения".format(address), 12f, muted))
+        add(detail, text("Физическая шкала и значения оси ещё не подтверждены; числа показаны как сырые байты.", 12f, muted))
+        gap(detail, 8)
+        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        for (row in 0 until 3) {
+            val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            for (col in 0 until 13) {
+                val i = row * 13 + col
+                val idx = address + i
+                val value = bytes[idx].toInt() and 255
+                val cell = TextView(this).apply {
+                    text = "%02X\n%d".format(value, value)
+                    gravity = Gravity.CENTER
+                    textSize = 11f
+                    setTextColor(fg)
+                    setPadding(dp(3), dp(8), dp(3), dp(8))
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(android.graphics.Color.rgb(25 + value * 180 / 255, 70 + value * 100 / 255, 100 - value * 70 / 255))
+                        setStroke(dp(1), bg)
+                        cornerRadius = dp(4).toFloat()
+                    }
+                    setOnClickListener { editRawCell(editorMapName, idx, 1) { render() } }
+                }
+                line.addView(cell, LinearLayout.LayoutParams(0, dp(54), 1f))
+            }
+            grid.addView(line)
+            gap(grid, 3)
+        }
+        add(detail, grid)
+        gap(detail, 8)
+        add(detail, action("Сохранить копию BIN") { saveCopy() })
+        gap(detail, 5)
+        add(detail, action("Сбросить выбор карты") { editorMapAddress = null; render() })
+        add(body, detail)
     }
 
     private fun overview() {
