@@ -207,7 +207,7 @@ class MainActivity : Activity() {
             add(body, c)
             return
         }
-        val maps = knownCalibrationCatalog().filter { it.address == 0x6A53 || it.address == 0x6A7A || it.address == 0x8F4A }
+        val maps = knownCalibrationCatalog()
         val listCard = card()
         add(listCard, text("КАРТЫ С ПРОВЕРЯЕМОЙ СИГНАТУРОЙ", 11f, accent, true))
         maps.forEach { map ->
