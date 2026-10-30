@@ -1,4 +1,4 @@
-name: CTP Mobile Lab 0.8.5 Android build
+name: CTP Mobile Lab 0.8.6 Android build
 
 on:
   push:
@@ -51,7 +51,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: CTP-Mobile-Lab-0.8.5-debug-apk
+          name: CTP-Mobile-Lab-0.8.6-debug-apk
           path: CTP321AndroidStarter_0.7.0/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
