@@ -118,36 +118,6 @@ class MainActivity : Activity() {
         status = text(if (firmwareBytes == null) "Январь 7.2 / J7ES  •  BIN не выбран" else "Январь 7.2 / J7ES  •  ${firmwareBytes!!.size} байт загружено", 12f, muted)
         add(root, status)
         gap(root, 8)
-        val tabScroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            clipToPadding = false
-        }
-        val tabs = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        listOf("Обзор", "Калибровки", "Редактор", "HEX", "Инструменты").forEach { name ->
-            val selected = tab == name
-            val item = TextView(this).apply {
-                text = name
-                textSize = 13f
-                gravity = Gravity.CENTER
-                setPadding(dp(16), dp(11), dp(16), dp(11))
-                background = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(if (selected) 0xFF203B32.toInt() else android.graphics.Color.TRANSPARENT)
-                    cornerRadius = dp(12).toFloat()
-                    if (selected) setStroke(dp(1), accent)
-                }
-                setTextColor(if (selected) accent else muted)
-                setTypeface(typeface, if (selected) Typeface.BOLD else Typeface.NORMAL)
-                setOnClickListener { tab = name; render() }
-            }
-            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            params.marginEnd = dp(6)
-            tabs.addView(item, params)
-        }
-        tabScroll.addView(tabs)
-        root.addView(tabScroll)
         val scroll = ScrollView(this).apply { isFillViewport = true }
         body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -171,7 +141,7 @@ class MainActivity : Activity() {
                     setColor(if (selected) 0xFF17352F.toInt() else android.graphics.Color.TRANSPARENT)
                     cornerRadius = dp(10).toFloat()
                 }
-                setOnClickListener { tab = name; render(); buildShell() }
+                setOnClickListener { tab = name; buildShell() }
             }
             add(item, text(glyph, 18f, if (selected) accent else muted, true).apply { gravity = Gravity.CENTER })
             add(item, text(name, 9f, if (selected) accent else muted, selected).apply { gravity = Gravity.CENTER })
