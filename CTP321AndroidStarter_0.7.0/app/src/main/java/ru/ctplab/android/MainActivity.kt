@@ -32,6 +32,7 @@ class MainActivity : Activity() {
     private var calibrationSearch = ""
     private var editorMapAddress: Int? = null
     private var editorMapName = ""
+    private var editorMode = "Таблица"
     private var firmwareDirty = false
     private val undoStack = java.util.ArrayDeque<ByteArray>()
     private val redoStack = java.util.ArrayDeque<ByteArray>()
@@ -206,8 +207,26 @@ class MainActivity : Activity() {
         gap(body)
         val detail = card()
         add(detail, text(editorMapName, 18f, fg, true))
-        add(detail, text("BIN 0x%04X • ${map.bytesExpected} байт • UINT8 • исходные значения".format(address), 12f, muted))
-        add(detail, text("Физическая шкала и значения оси ещё не подтверждены; числа показаны как сырые байты.", 12f, muted))
+        add(detail, text("BIN 0x%04X  •  ${map.bytesExpected} байт  •  UINT8".format(address), 12f, muted))
+        add(detail, text("Данные BIN без подтверждённой расшифровки осей и коэффициентов", 11f, muted))
+        gap(detail, 8)
+        val modeBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(3), dp(3), dp(3), dp(3)); background = android.graphics.drawable.GradientDrawable().apply { setColor(bg); cornerRadius = dp(10).toFloat() } }
+        listOf("Таблица", "График", "Параметры").forEach { mode ->
+            val selected = editorMode == mode
+            val item = TextView(this).apply {
+                text = mode; gravity = Gravity.CENTER; textSize = 13f
+                setTextColor(if (selected) accent else muted)
+                setTypeface(typeface, if (selected) Typeface.BOLD else Typeface.NORMAL)
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(if (selected) 0xFF203B32.toInt() else android.graphics.Color.TRANSPARENT)
+                    cornerRadius = dp(8).toFloat()
+                }
+                setOnClickListener { editorMode = mode; render() }
+            }
+            modeBar.addView(item, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        add(detail, modeBar)
         gap(detail, 8)
         val editActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         editActions.addView(action("↶ Отменить") { undoLastEdit() }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -220,32 +239,76 @@ class MainActivity : Activity() {
         dataActions.addView(action("Вставить значения") { pasteRawMap(address, map.bytesExpected) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         add(detail, dataActions)
         gap(detail, 8)
-        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        for (row in 0 until 3) {
-            val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            for (col in 0 until 13) {
-                val i = row * 13 + col
-                val idx = address + i
-                val value = bytes[idx].toInt() and 255
-                val cell = TextView(this).apply {
-                    text = "%02X\n%d".format(value, value)
-                    gravity = Gravity.CENTER
-                    textSize = 11f
-                    setTextColor(fg)
-                    setPadding(dp(3), dp(8), dp(3), dp(8))
-                    background = android.graphics.drawable.GradientDrawable().apply {
-                        setColor(android.graphics.Color.rgb(25 + value * 180 / 255, 70 + value * 100 / 255, 100 - value * 70 / 255))
-                        setStroke(dp(1), bg)
-                        cornerRadius = dp(4).toFloat()
+        when (editorMode) {
+            "Таблица" -> {
+                add(detail, text("КАРТА ЗНАЧЕНИЙ", 11f, accent, true))
+                add(detail, text("Адрес BIN   HEX   DEC", 10f, muted))
+                val horizontal = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = true }
+                val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                val columns = 8
+                val rows = (map.bytesExpected + columns - 1) / columns
+                for (row in 0 until rows) {
+                    val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                    for (col in 0 until columns) {
+                        val i = row * columns + col
+                        if (i < map.bytesExpected) {
+                            val idx = address + i
+                            val value = bytes[idx].toInt() and 255
+                            val cell = TextView(this).apply {
+                                text = "%02X\\n%d".format(value, value)
+                                gravity = Gravity.CENTER
+                                textSize = 11f
+                                setTextColor(fg)
+                                setPadding(dp(7), dp(9), dp(7), dp(9))
+                                background = android.graphics.drawable.GradientDrawable().apply {
+                                    val shade = (35 + value * 150 / 255)
+                                    setColor(android.graphics.Color.rgb(shade / 2, shade, 95 + value * 90 / 255))
+                                    setStroke(dp(1), bg)
+                                    cornerRadius = dp(5).toFloat()
+                                }
+                                setOnClickListener { editRawCell(editorMapName, idx, 1) { render() } }
+                            }
+                            val p = LinearLayout.LayoutParams(dp(58), dp(54))
+                            p.setMargins(dp(2), dp(2), dp(2), dp(2))
+                            line.addView(cell, p)
+                        }
                     }
-                    setOnClickListener { editRawCell(editorMapName, idx, 1) { render() } }
+                    grid.addView(line)
                 }
-                line.addView(cell, LinearLayout.LayoutParams(0, dp(54), 1f))
+                horizontal.addView(grid)
+                add(detail, horizontal)
+                add(detail, text("Нажми на ячейку, чтобы изменить байт. Цвет показывает относительное значение 00–FF.", 10f, muted))
             }
-            grid.addView(line)
-            gap(grid, 3)
+            "График" -> {
+                add(detail, text("ГРАФИК ЗНАЧЕНИЙ", 11f, accent, true))
+                add(detail, text("X — индекс элемента; Y — значение байта 0–255. Это диагностический график, не физическая характеристика двигателя.", 11f, muted))
+                val plot = object : View(this) {
+                    private val linePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = accent; strokeWidth = dp(2).toFloat(); style = android.graphics.Paint.Style.STROKE }
+                    private val gridPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF394150.toInt(); strokeWidth = dp(1).toFloat() }
+                    private val pointPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = fg; style = android.graphics.Paint.Style.FILL }
+                    override fun onDraw(canvas: android.graphics.Canvas) {
+                        super.onDraw(canvas)
+                        val l = dp(28).toFloat(); val r = width - dp(8).toFloat(); val t = dp(12).toFloat(); val b = height - dp(22).toFloat()
+                        for (n in 0..4) { val y = t + (b-t)*n/4f; canvas.drawLine(l,y,r,y,gridPaint) }
+                        val path = android.graphics.Path()
+                        for (i in 0 until map.bytesExpected) {
+                            val v = bytes[address+i].toInt() and 255
+                            val x = l + (r-l)*i/(map.bytesExpected-1).coerceAtLeast(1).toFloat()
+                            val y = b - (b-t)*v/255f
+                            if (i == 0) path.moveTo(x,y) else path.lineTo(x,y)
+                            canvas.drawCircle(x,y,dp(2).toFloat(),pointPaint)
+                        }
+                        canvas.drawPath(path,linePaint)
+                    }
+                }.apply { layoutParams = LinearLayout.LayoutParams(-1, dp(230)) }
+                add(detail, plot)
+            }
+            else -> {
+                add(detail, text("ПАРАМЕТРЫ КАРТЫ", 11f, accent, true))
+                add(detail, text("Имя: ${map.name}\\nАдрес BIN: 0x%04X\\nДлина: ${map.bytesExpected} байт\\nТип чтения: UINT8\\nСтатус сигнатуры: подтверждена".format(address), 13f, fg))
+                add(detail, text("Оси, размерность и коэффициенты будут показаны после разбора структуры J7. Они не подменяются предположительными значениями.", 11f, muted))
+            }
         }
-        add(detail, grid)
         gap(detail, 10)
         add(detail, text("ГРАФИК СЫРЫХ ЗНАЧЕНИЙ", 11f, accent, true))
         add(detail, text("Ось X — индекс байта в карте; ось Y — значение 0–255. Это не физические единицы двигателя.", 11f, muted))
